@@ -623,7 +623,8 @@ sub check_sill {
   my $out_cell = $cell->[$out_r][$out_c];
      return if ($out_cell & $BLOCKED);
 
-  my $out_id; if ($out_cell & $ROOM) {
+  my $out_id;
+  if ($out_cell & $ROOM) {
     $out_id = ($out_cell & $ROOM_ID) >> 6;
     return if ($out_id == $room->{'id'});
   }
