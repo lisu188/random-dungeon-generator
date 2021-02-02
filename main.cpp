@@ -72,7 +72,7 @@ struct Options {
     const std::string dungeon_layout = "None";
     const int room_min = 3; //minimum room size
     const int room_max = 9; //maximum room size
-    const std::string room_layout = "Packed";  //Packed, Scattered
+    const std::string room_layout = "Scattered";  //Packed, Scattered
     const std::string corridor_layout = "Bent";
     const int remove_deadends = 50;//percentage
     const int add_stairs = 2; //number of stairs
@@ -531,7 +531,7 @@ int main() {
         for (auto col:row) {
             if (col & ROOM) {
                 std::cout << "X";
-            } else if (col & DOOR) {
+            } else if (col & DOORSPACE) {
                 std::cout << "D";
             } else {
                 std::cout << " ";
