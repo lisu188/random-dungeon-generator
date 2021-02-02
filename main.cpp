@@ -49,22 +49,21 @@ int BLOCK_ROOM = BLOCKED | ROOM;
 int BLOCK_CORR = BLOCKED | PERIMETER | CORRIDOR;
 int BLOCK_DOOR = BLOCKED | DOORSPACE;
 
-struct Room {
-    Room(const int id, const int row, const int col, const int north, const int south, const int west, const int east,
-         const int height, const int width) : id(id), row(row), col(col), north(north), south(south),
-                                              west(west), east(east), height(height), width(width),
-                                              area(height * width) {}
+struct Door;
 
-    const int id;
-    const int row;
-    const int col;
-    const int north;
-    const int south;
-    const int west;
-    const int east;
-    const int height;
-    const int width;
-    const int area;
+struct Room {
+    int id;
+    int row;
+    int col;
+    int north;
+    int south;
+    int west;
+    int east;
+    int height;
+    int width;
+    int area;
+
+    std::multimap<std::string, Door> door;
 };
 
 struct Options {
@@ -88,6 +87,14 @@ struct Sill {
     const int door_r;
     const int door_c;
     const int out_id;
+};
+
+struct Door {
+    int row;
+    int col;
+    std::string key;
+    std::string type;
+    int out_id;
 };
 
 class Dungeon {
@@ -234,7 +241,10 @@ public:
             }
         }
 
-        room.try_emplace(room_id, room_id, r1, c1, r1, r2, c1, c2, ((r2 - r1) + 1), ((c2 - c1) + 1));
+        int __height = (r2 - r1) + 1;
+        int __width = (c2 - c1) + 1;
+        Room _room = {room_id, r1, c1, r1, r2, c1, c2, __height, __width, __height * __width};
+        room[room_id] = _room;
 
         for (int r = r1 - 1; r <= r2 + 1; r++) {
             if (!(cell[r][c1 - 1] & (ROOM | ENTRANCE))) {
@@ -316,68 +326,108 @@ public:
         return dungeon_area / room_area;
     }
 
-    void open_room(Room room) {
+    void open_room(Room &room, std::set<std::pair<int, int>> &connected) {
         auto list = door_sills(room);
         if (list.empty()) {
             return;
         }
         auto n_opens = alloc_opens(room);
 
-        for (int i=0;i<n_opens;i++){
-            my $sill = splice(@list,int(rand(@list)),1);
-            last unless ($sill);
-            my $door_r = $sill->{'door_r'};
-            my $door_c = $sill->{'door_c'};
-            my $door_cell = $cell->[$door_r][$door_c];
-            redo if ($door_cell & $DOORSPACE);
+        for (int i = 0; i < n_opens && !list.empty(); i++) {
+            std::list<Sill> sills;
+            auto it = list.begin();
+            std::advance(it, vstd::rand(list.size()));
+            sills.splice(sills.begin(), list, it);
+            auto sill = sills.front();
+            auto door_r = sill.door_r;
+            auto door_c = sill.door_c;
+            auto door_cell = cell[door_r][door_c];
 
-            my $out_id; if ($out_id = $sill->{'out_id'}) {
-                my $connect = join(',',(sort($room->{'id'},$out_id)));
-                redo if ($dungeon->{'connect'}{$connect}++);
+            if (door_cell & DOORSPACE) {
+                n_opens--;
+                continue;
             }
-            my $open_r = $sill->{'sill_r'};
-            my $open_c = $sill->{'sill_c'};
-            my $open_dir = $sill->{'dir'};
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# open door
+            auto out_id = sill.out_id;
+            if (out_id) {
+                auto connect = std::make_pair(std::min(room.id, out_id), std::max(room.id, out_id));
 
-                    my $x; for ($x = 0; $x < 3; $x++) {
-                my $r = $open_r + ($di->{$open_dir} * $x);
-                my $c = $open_c + ($dj->{$open_dir} * $x);
+                if (vstd::ctn(connected, connect)) {
+                    n_opens--;
+                    continue;
+                }
 
-                $cell->[$r][$c] &= ~ $PERIMETER;
-                $cell->[$r][$c] |= $ENTRANCE;
+                connected.insert(connect);
             }
-            my $door_type = &door_type();
-            my $door = { 'row' => $door_r, 'col' => $door_c };
+            auto open_r = sill.sill_r;
+            auto open_c = sill.sill_c;
+            auto open_dir = sill.dir;
 
-            if ($door_type == $ARCH) {
-                $cell->[$door_r][$door_c] |= $ARCH;
-                $door->{'key'} = 'arch'; $door->{'type'} = 'Archway';
-            } elsif ($door_type == $DOOR) {
-                $cell->[$door_r][$door_c] |= $DOOR;
-                $cell->[$door_r][$door_c] |= (ord('o') << 24);
-                $door->{'key'} = 'open'; $door->{'type'} = 'Unlocked Door';
-            } elsif ($door_type == $LOCKED) {
-                $cell->[$door_r][$door_c] |= $LOCKED;
-                $cell->[$door_r][$door_c] |= (ord('x') << 24);
-                $door->{'key'} = 'lock'; $door->{'type'} = 'Locked Door';
-            } elsif ($door_type == $TRAPPED) {
-                $cell->[$door_r][$door_c] |= $TRAPPED;
-                $cell->[$door_r][$door_c] |= (ord('t') << 24);
-                $door->{'key'} = 'trap'; $door->{'type'} = 'Trapped Door';
-            } elsif ($door_type == $SECRET) {
-                $cell->[$door_r][$door_c] |= $SECRET;
-                $cell->[$door_r][$door_c] |= (ord('s') << 24);
-                $door->{'key'} = 'secret'; $door->{'type'} = 'Secret Door';
-            } elsif ($door_type == $PORTC) {
-                $cell->[$door_r][$door_c] |= $PORTC;
-                $cell->[$door_r][$door_c] |= (ord('#') << 24);
-                $door->{'key'} = 'portc'; $door->{'type'} = 'Portcullis';
+            for (auto x = 0; x < 3; x++) {
+                auto r = open_r + (DI[open_dir] * x);
+                auto c = open_c + (DJ[open_dir] * x);
+
+                cell[r][c] = cell[r][c] & ~PERIMETER;
+                cell[r][c] = cell[r][c] | ENTRANCE;
             }
-            $door->{'out_id'} = $out_id if ($out_id);
-            push(@{ $room->{'door'}{$open_dir} },$door) if ($door);
+            int door_type = generate_door_type();
+            Door door;
+            door.row = door_r;
+            door.col = door_c;
+
+            if (door_type == ARCH) {
+                cell[door_r][door_c] = cell[door_r][door_c] | ARCH;
+                door.key = "arch";
+                door.type = "Archway";
+            } else if (door_type == DOOR) {
+                cell[door_r][door_c] = cell[door_r][door_c] | DOOR;
+                cell[door_r][door_c] = cell[door_r][door_c] | ('o' << 24);
+                door.key = "open";
+                door.type = "Unlocked Door";
+            } else if (door_type == LOCKED) {
+                cell[door_r][door_c] = cell[door_r][door_c] | LOCKED;
+                cell[door_r][door_c] = cell[door_r][door_c] | ('x' << 24);
+                door.key = "lock";
+                door.type = "Locked Door";
+            } else if (door_type == TRAPPED) {
+                cell[door_r][door_c] = cell[door_r][door_c] | TRAPPED;
+                cell[door_r][door_c] = cell[door_r][door_c] | ('t' << 24);
+                door.key = "trap";
+                door.type = "Trapped Door";
+            } else if (door_type == SECRET) {
+                cell[door_r][door_c] = cell[door_r][door_c] | TRAPPED;
+                cell[door_r][door_c] = cell[door_r][door_c] | ('s' << 24);
+                door.key = "secret";
+                door.type = "Secret Door";
+            } else if (door_type == PORTC) {
+                cell[door_r][door_c] = cell[door_r][door_c] | TRAPPED;
+                cell[door_r][door_c] = cell[door_r][door_c] | ('p' << 24);
+                door.key = "portc";
+                door.type = "Portcullis";
+            }
+
+            door.out_id = out_id;
+            if (out_id) {
+                room.door.insert({open_dir, door});
+            }
+        }
+    }
+
+    int generate_door_type() {
+        auto i = int(vstd::rand(110));
+
+        if (i < 15) {
+            return ARCH;
+        } else if (i < 60) {
+            return DOOR;
+        } else if (i < 75) {
+            return LOCKED;
+        } else if (i < 90) {
+            return TRAPPED;
+        } else if (i < 100) {
+            return SECRET;
+        } else {
+            return PORTC;
         }
     }
 
@@ -385,7 +435,7 @@ public:
         auto room_h = ((room.south - room.north) / 2) + 1;
         auto room_w = ((room.east - room.west) / 2) + 1;
         auto flumph = sqrt(room_w * room_h);
-        return (int)flumph + vstd::rand(flumph);
+        return (int) flumph + vstd::rand(flumph);
     }
 
     std::optional<Sill> check_sill(Room room, int sill_r, int sill_c, std::string dir) {
@@ -441,13 +491,13 @@ public:
                 }
             }
         }
-        std::shuffle(sills.begin(), sills.end(), vstd::rng());
         return sills;
     }
 
     void open_rooms() {
+        std::set<std::pair<int, int>> connected;
         for (int i = 1; i <= n_rooms; i++) {
-            open_room(room[i]);
+            open_room(room[i], connected);
         }
     }
 };
@@ -481,6 +531,8 @@ int main() {
         for (auto col:row) {
             if (col & ROOM) {
                 std::cout << "X";
+            } else if (col & DOOR) {
+                std::cout << "D";
             } else {
                 std::cout << " ";
             }
