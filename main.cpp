@@ -6,7 +6,7 @@
 #include <vstd.h>
 
 std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT = {
-        {"Box",   {{1, 1, 1}, {1, 0, 1}, {1, 1, 1}}},
+        {"Box", {  {1, 1, 1}, {1, 0, 1}, {1, 1, 1}}},
         {"Cross", {{0, 1, 0}, {1, 1, 1}, {0, 1, 0}}}
 };
 
@@ -18,6 +18,12 @@ std::map<std::string, int> DJ = {{"north", 0},
                                  {"south", 0},
                                  {"west",  -1},
                                  {"east",  1}};
+
+std::map<std::string, int> CORRIDOR_LAYOUT = {
+        {"Labyrinth", 0},
+        {"Bent", 50},
+        {"Straight", 100}
+};
 
 int NOTHING = 0x00000000;
 
@@ -500,6 +506,60 @@ public:
             open_room(room[i], connected);
         }
     }
+
+    void label_rooms() {
+        for (auto id = 1; id <= n_rooms; id++) {
+            auto _room = room[id];
+            auto label = vstd::str(_room.id);
+            auto len = label.length();
+            auto label_r = int((_room.north + _room.south) / 2);
+            auto label_c = int((_room.west + _room.east - len) / 2) + 1;
+
+            for (auto c = 0; c < len; c++) {
+                auto _char = label.substr(c, 1)[0];
+                cell[label_r][label_c + c] = cell[label_r][label_c + c] | (_char << 24);
+            }
+        }
+    }
+
+    void corridors() {
+        for (auto i = 1; i < n_i; i++) {
+            auto r = (i * 2) + 1;
+            for (auto j = 1; j < n_j; j++) {
+                auto c = (j * 2) + 1;
+
+                if (cell[r][c] & CORRIDOR)continue;
+                tunnel(i, j);
+            }
+        }
+    }
+
+    void tunnel(int i, int j, std::string last_dir = "") {
+        auto dirs = tunnel_dirs(last_dir);
+
+        my $dir;
+        foreach
+        $dir(@dirs) {
+            if (&open_tunnel($dungeon, $i, $j, $dir)) {
+                my $next_i = $i + $di->{ $dir };
+                my $next_j = $j + $dj->{ $dir };
+
+                $dungeon = &tunnel($dungeon, $next_i, $next_j, $dir);
+            }
+        }
+        return $dungeon;
+    }
+
+    auto tunnel_dirs(std::string last_dir) {
+        auto p= CORRIDOR_LAYOUT[options.corridor_layout];
+        };
+        my @dirs = &shuffle(@dj_dirs);
+
+        if ($last_dir && $p) {
+            unshift(@dirs, $last_dir) if (int(rand(100)) < $p);
+        }
+        return @dirs;
+    }
 };
 
 Dungeon create_dungeon(Options
@@ -511,10 +571,10 @@ Dungeon create_dungeon(Options
     dungeon.emplace_rooms();
 
     dungeon.open_rooms();
-//
-//    dungeon.label_rooms();
-//
-//    dungeon.corridors();
+
+    dungeon.label_rooms();
+
+    dungeon.corridors();
 //
 //    if (dungeon.options.add_stairs) {
 //        dungeon.emplace_stairs();
@@ -529,7 +589,9 @@ int main() {
     auto dungeon = create_dungeon(Options());
     for (const auto &row:dungeon.cell) {
         for (auto col:row) {
-            if (col & ROOM) {
+            if (auto label = char((col & LABEL) >> 24)) {
+                std::cout << label;
+            } else if (col & ROOM) {
                 std::cout << "X";
             } else if (col & DOORSPACE) {
                 std::cout << "D";
