@@ -6,7 +6,7 @@
 #include <vstd.h>
 
 std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT = {
-        {"Box", {  {1, 1, 1}, {1, 0, 1}, {1, 1, 1}}},
+        {"Box",   {{1, 1, 1}, {1, 0, 1}, {1, 1, 1}}},
         {"Cross", {{0, 1, 0}, {1, 1, 1}, {0, 1, 0}}}
 };
 
@@ -21,8 +21,8 @@ std::map<std::string, int> DJ = {{"north", 0},
 
 std::map<std::string, int> CORRIDOR_LAYOUT = {
         {"Labyrinth", 0},
-        {"Bent", 50},
-        {"Straight", 100}
+        {"Bent",      50},
+        {"Straight",  100}
 };
 
 int NOTHING = 0x00000000;
@@ -383,6 +383,7 @@ public:
 
             if (door_type == ARCH) {
                 cell[door_r][door_c] = cell[door_r][door_c] | ARCH;
+                cell[door_r][door_c] = cell[door_r][door_c] | ('a' << 24);
                 door.key = "arch";
                 door.type = "Archway";
             } else if (door_type == DOOR) {
@@ -537,29 +538,83 @@ public:
     void tunnel(int i, int j, std::string last_dir = "") {
         auto dirs = tunnel_dirs(last_dir);
 
-        my $dir;
-        foreach
-        $dir(@dirs) {
-            if (&open_tunnel($dungeon, $i, $j, $dir)) {
-                my $next_i = $i + $di->{ $dir };
-                my $next_j = $j + $dj->{ $dir };
+        for (auto dir:dirs)
+            if (open_tunnel(i, j, dir)) {
+                auto next_i = i + DI[dir];
+                auto next_j = j + DJ[dir];
 
-                $dungeon = &tunnel($dungeon, $next_i, $next_j, $dir);
+                tunnel(next_i, next_j, dir);
+            }
+    }
+
+    std::deque<std::string> tunnel_dirs(std::string last_dir) {
+        auto p = CORRIDOR_LAYOUT[options.corridor_layout];
+        std::deque<std::string> dirs;
+        for (auto[key, value]:DJ) {
+            dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
+        }
+        std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
+
+        if (!last_dir.empty() && p && vstd::rand(100) < p) {
+            dirs.push_front(last_dir);
+        }
+        return dirs;
+    }
+
+    bool open_tunnel(int i, int j, std::string dir) {
+        auto this_r = (i * 2) + 1;
+        auto this_c = (j * 2) + 1;
+        auto next_r = ((i + DI[dir]) * 2) + 1;
+        auto next_c = ((j + DJ[dir]) * 2) + 1;
+        auto mid_r = (this_r + next_r) / 2;
+        auto mid_c = (this_c + next_c) / 2;
+
+        if (sound_tunnel(mid_r, mid_c, next_r, next_c)) {
+            return delve_tunnel(this_r, this_c, next_r, next_c);
+        } else {
+            return false;
+        }
+    }
+
+    bool sound_tunnel(int mid_r, int mid_c, int next_r, int next_c) {
+
+        if (next_r < 0 || next_r > n_rows) {
+            return false;
+        }
+        if (next_c < 0 || next_c > n_cols) {
+            return false;
+        }
+        auto r1 = std::min(mid_r, next_r);
+        auto r2 = std::max(mid_r, next_r);
+        auto c1 = std::min(mid_c, next_c);
+        auto c2 = std::max(mid_c, next_c);
+
+        for (auto r = r1; r <= r2; r++) {
+            for (auto c = c1; c <= c2; c++) {
+                if (cell[r][c] & BLOCK_CORR) {
+                    return false;
+                }
             }
         }
-        return $dungeon;
+
+        return true;
     }
 
-    auto tunnel_dirs(std::string last_dir) {
-        auto p= CORRIDOR_LAYOUT[options.corridor_layout];
-        };
-        my @dirs = &shuffle(@dj_dirs);
+    bool delve_tunnel(int this_r, int this_c, int next_r, int next_c) {
+        auto r1 = std::min(this_r, next_r);
+        auto r2 = std::max(this_r, next_r);
+        auto c1 = std::min(this_c, next_c);
+        auto c2 = std::max(this_c, next_c);
 
-        if ($last_dir && $p) {
-            unshift(@dirs, $last_dir) if (int(rand(100)) < $p);
+        for (auto r = r1; r <= r2; r++) {
+            for (auto c = c1; c <= c2; c++) {
+                cell[r][c] = cell[r][c] & ~ENTRANCE;
+                cell[r][c] = cell[r][c] | CORRIDOR;
+            }
         }
-        return @dirs;
+        return true;
     }
+
 };
 
 Dungeon create_dungeon(Options
@@ -593,6 +648,8 @@ int main() {
                 std::cout << label;
             } else if (col & ROOM) {
                 std::cout << "X";
+            } else if (col & CORRIDOR) {
+                std::cout << "x";
             } else if (col & DOORSPACE) {
                 std::cout << "D";
             } else {
