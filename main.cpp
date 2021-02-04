@@ -79,7 +79,7 @@ struct Options {
     const int room_min = 3; //minimum room size
     const int room_max = 9; //maximum room size
     const std::string room_layout = "Scattered";  //Packed, Scattered
-    const std::string corridor_layout = "Bent";
+    const std::string corridor_layout = "Straight";
     const int remove_deadends = 50;//percentage
     const int add_stairs = 2; //number of stairs
     const std::string map_style = "Standard";
