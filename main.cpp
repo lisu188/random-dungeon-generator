@@ -25,6 +25,34 @@ std::map<std::string, int> CORRIDOR_LAYOUT = {
         {"Straight",  100}
 };
 
+std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAIR_END = {
+        {"north", {
+                          {"walled", {{1,  -1}, {0,  -1}, {-1, -1}, {-1, 0},  {-1, 1},  {0, 1}, {1,  1}}},
+                          {"corridor", {{0, 0}, {1,  0},  {2,  0}}},
+                          {"stair", {{0, 0}}},
+                          {"next", {{1,  0}}}
+                  }},
+        {"south", {
+                          {"walled", {{-1, -1}, {0,  -1}, {1,  -1}, {1,  0},  {1,  1},  {0, 1}, {-1, 1}}},
+                          {"corridor", {{0, 0}, {-1, 0},  {-2, 0}}},
+                          {"stair", {{0, 0}}},
+                          {"next", {{-1, 0}}}
+                  }},
+        {"west",  {
+                          {"walled", {{-1, 1},  {-1, 0},  {-1, -1}, {0,  -1}, {1,  -1}, {1, 0}, {1,  1}}},
+                          {"corridor", {{0, 0}, {0,  1},  {0,  2}}},
+                          {"stair", {{0, 0}}},
+                          {"next", {{0,  1}}}
+                  }},
+        {"east",  {
+                          {"walled", {{-1, -1}, {-1, 0},  {-1, 1},  {0,  1},  {1,  1},  {1, 0}, {1,  -1}}},
+                          {"corridor", {{0, 0}, {0,  -1}, {0,  -2}}},
+                          {"stair", {{0, 0}}},
+                          {"next", {{0,  -1}}}
+                  }}
+};
+
+
 int NOTHING = 0x00000000;
 
 int BLOCKED = 0x00000001;
@@ -70,6 +98,14 @@ struct Room {
     int area;
 
     std::multimap<std::string, Door> door;
+};
+
+struct Stairs {
+
+    int row;
+    int col;
+    int next_row;
+    int next_col;
 };
 
 struct Options {
@@ -121,7 +157,8 @@ private:
     int n_rooms = 0;
     int last_room_id = 0;
 public:
-    explicit Dungeon(Options _options) :
+    explicit Dungeon(Options
+                     _options) :
             options(std::move(_options)),
             n_i(options.n_rows / 2),
             n_j(options.n_cols / 2),
@@ -615,6 +652,88 @@ public:
         return true;
     }
 
+    void emplace_stairs() {
+        auto n = options.add_stairs;
+        if (n <= 0) {
+            return;
+        }
+        auto list = stair_ends();
+        return $dungeon
+        unless(@list);
+        my $cell = $dungeon->{ 'cell' };
+
+        my $i;
+        for ($i = 0; $i < $n; $i++) {
+            my
+            $stair = splice(@list, int(rand(@list)),1);
+            last unless($stair);
+            my $r = $stair->{ 'row' };
+            my $c = $stair->{ 'col' };
+            my $type = ($i < 2) ? $i : int(rand(2));
+
+            if ($type == 0) {
+                $cell->[$r][$c] |= $STAIR_DN;
+                $cell->[$r][$c] |= (ord('d') << 24);
+                $stair->
+                { 'key' } = 'down';
+            } else {
+                $cell->[$r][$c] |= $STAIR_UP;
+                $cell->[$r][$c] |= (ord('u') << 24);
+                $stair->
+                { 'key' } = 'up';
+            }
+            push(@{
+                $dungeon->
+                { 'stair' }
+            },$stair);
+        }
+        return $dungeon;
+    }
+
+    bool check_tunnel(int r, int c, std::map<std::string, std::vector<std::vector<int>>> check) {
+        for (auto p:check["corridor"]) {
+            if (cell[r + p[0]][c + p[1]] != CORRIDOR) {
+                return false;
+            }
+        }
+        for (auto p:check["walled"]) {
+            if (cell[r + p[0]][c + p[1]] & OPENSPACE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    std::list<Stairs> stair_ends() {
+        std::list<Stairs> stairs;
+
+        for (auto i = 0; i < n_i; i++) {
+            auto r = (i * 2) + 1;
+            for (auto j = 0; j < n_j; j++) {
+                auto c = (j * 2) + 1;
+
+                if (cell[r][c] != CORRIDOR || cell[r][c] & STAIRS) {
+                    continue;
+                }
+                for (auto[dir,dir_value]:STAIR_END) {
+                    if (check_tunnel(r, c, dir_value)) {
+                        Stairs end;
+                        end.row = r;
+                        end.col = c;
+
+                        auto n=dir_value["next"];
+                        end.next_row=end.row+n[0][0];
+                        end.next_col=end.col+n[0][1];
+
+                       stairs.push_back(end);
+                       break;
+                    }
+                }
+            }
+        }
+        return stairs;
+    }
+
 };
 
 Dungeon create_dungeon(Options
@@ -630,11 +749,10 @@ Dungeon create_dungeon(Options
     dungeon.label_rooms();
 
     dungeon.corridors();
-//
-//    if (dungeon.options.add_stairs) {
-//        dungeon.emplace_stairs();
-//
-//    }
+
+    if (dungeon.options.add_stairs) {
+        dungeon.emplace_stairs();
+    }
 //    dungeon.clean_dungeon();
 
     return dungeon;
