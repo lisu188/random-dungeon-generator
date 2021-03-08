@@ -106,6 +106,7 @@ struct Stairs {
     int col;
     int next_row;
     int next_col;
+    std::string key;
 };
 
 struct Options {
@@ -144,6 +145,7 @@ public:
     const Options options;
     std::vector<std::vector<int>> cell;
     std::map<int, Room> room;
+    std::list<Stairs> stairs;
 private:
     const int n_i;
     const int n_j;
@@ -658,36 +660,33 @@ public:
             return;
         }
         auto list = stair_ends();
-        return $dungeon
-        unless(@list);
-        my $cell = $dungeon->{ 'cell' };
 
-        my $i;
-        for ($i = 0; $i < $n; $i++) {
-            my
-            $stair = splice(@list, int(rand(@list)),1);
-            last unless($stair);
-            my $r = $stair->{ 'row' };
-            my $c = $stair->{ 'col' };
-            my $type = ($i < 2) ? $i : int(rand(2));
-
-            if ($type == 0) {
-                $cell->[$r][$c] |= $STAIR_DN;
-                $cell->[$r][$c] |= (ord('d') << 24);
-                $stair->
-                { 'key' } = 'down';
-            } else {
-                $cell->[$r][$c] |= $STAIR_UP;
-                $cell->[$r][$c] |= (ord('u') << 24);
-                $stair->
-                { 'key' } = 'up';
-            }
-            push(@{
-                $dungeon->
-                { 'stair' }
-            },$stair);
+        if (list.empty()) {
+            return;
         }
-        return $dungeon;
+
+        for (int i = 0; i < n; i++) {
+            auto it = list.begin();
+            std::advance(it, vstd::rand(list.size()));
+            Stairs stairs = *it;
+            list.erase(it);
+
+            auto r = stairs.row;
+            auto c = stairs.col;
+            auto type = (i < 2) ? i : vstd::rand(2);
+
+
+            if (type == 0) {
+                cell[r][c] = cell[r][c] | STAIR_DN;
+                cell[r][c] = cell[r][c] | ('d' << 24);
+                stairs.key = "down";
+            } else {
+                cell[r][c] = cell[r][c] | STAIR_UP;
+                cell[r][c] = cell[r][c] | ('u' << 24);
+                stairs.key = "up";
+            }
+            this->stairs.push_back(stairs);
+        }
     }
 
     bool check_tunnel(int r, int c, std::map<std::string, std::vector<std::vector<int>>> check) {
@@ -715,18 +714,18 @@ public:
                 if (cell[r][c] != CORRIDOR || cell[r][c] & STAIRS) {
                     continue;
                 }
-                for (auto[dir,dir_value]:STAIR_END) {
+                for (auto[dir, dir_value]:STAIR_END) {
                     if (check_tunnel(r, c, dir_value)) {
                         Stairs end;
                         end.row = r;
                         end.col = c;
 
-                        auto n=dir_value["next"];
-                        end.next_row=end.row+n[0][0];
-                        end.next_col=end.col+n[0][1];
+                        auto n = dir_value["next"];
+                        end.next_row = end.row + n[0][0];
+                        end.next_col = end.col + n[0][1];
 
-                       stairs.push_back(end);
-                       break;
+                        stairs.push_back(end);
+                        break;
                     }
                 }
             }
