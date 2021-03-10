@@ -757,22 +757,22 @@ public:
     }
 
     void collapse(int r, int c) {
-        if(! (cell[r][c] & OPENSPACE)) {
-            return ;
+        if (!(cell[r][c] & OPENSPACE)) {
+            return;
         }
-        for(auto [key,value]:CLOSE_END)
-            if (check_tunnel(r,c,value)) {
-               for(auto p:value["close"]){
-                    cell[r+p[0]][c+p[1]] = NOTHING;
+        for (auto[key, value]:CLOSE_END)
+            if (check_tunnel(r, c, value)) {
+                for (auto p:value["close"]) {
+                    cell[r + p[0]][c + p[1]] = NOTHING;
                 }
-                for(auto p:value["open"]){
-                    cell[r+p[0]][c+p[1]] = cell[r+p[0]][c+p[1]] |CORRIDOR;
+                for (auto p:value["open"]) {
+                    cell[r + p[0]][c + p[1]] = cell[r + p[0]][c + p[1]] | CORRIDOR;
                 }
-                for(auto p:value["recurse"]){
-                    collapse(r+p[0],c+p[1]);
+                for (auto p:value["recurse"]) {
+                    collapse(r + p[0], c + p[1]);
                 }
             }
-        }
+    }
 
     void collapse_tunnels(int p) {
         if (!p) {
