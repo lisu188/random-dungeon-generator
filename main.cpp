@@ -52,6 +52,29 @@ std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAI
                   }}
 };
 
+std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOSE_END = {
+        {"north", {
+                          {"walled", {{0,  -1}, {1,  -1}, {1,  0},  {1,  1},  {0, 1}}},
+                          {"close", {{0, 0}}},
+                          {"recurse", {{-1, 0}}},
+                  }},
+        {"south", {
+                          {"walled", {{0,  -1}, {-1, -1}, {-1, 0},  {-1, 1},  {0, 1}}},
+                          {"close", {{0, 0}}},
+                          {"recurse", {{1,  0}}},
+                  }},
+        {"west",  {
+                          {"walled", {{-1, 0},  {-1, 1},  {0,  1},  {1,  1},  {1, 0}}},
+                          {"close", {{0, 0}}},
+                          {"recurse", {{0,  -1}}},
+                  }},
+        {"east",  {
+                          {"walled", {{-1, 0},  {-1, -1}, {0,  -1}, {1,  -1}, {1, 0}}},
+                          {"close", {{0, 0}}},
+                          {"recurse", {{0,  1}}},
+                  }}
+};
+
 
 int NOTHING = 0x00000000;
 
@@ -733,6 +756,60 @@ public:
         return stairs;
     }
 
+    void collapse(int r, int c) {
+        if(! (cell[r][c] & OPENSPACE)) {
+            return ;
+        }
+        for(auto [key,value]:CLOSE_END)
+            if (check_tunnel(r,c,value)) {
+               for(auto p:value["close"]){
+                    cell[r+p[0]][c+p[1]] = NOTHING;
+                }
+                for(auto p:value["open"]){
+                    cell[r+p[0]][c+p[1]] = cell[r+p[0]][c+p[1]] |CORRIDOR;
+                }
+                for(auto p:value["recurse"]){
+                    collapse(r+p[0],c+p[1]);
+                }
+            }
+        }
+
+    void collapse_tunnels(int p) {
+        if (!p) {
+            return;
+        }
+        auto all = p == 100;
+
+        for (int i = 0; i < n_i; i++) {
+            auto r = (i * 2) + 1;
+            for (int j = 0; j < n_j; j++) {
+                auto c = (j * 2) + 1;
+
+                if (!(cell[r][c] & OPENSPACE)) {
+                    continue;
+                }
+                if (cell[r][c] & STAIRS) {
+                    continue;
+                }
+                if (!(all || vstd::rand(100) < p)) {
+                    continue;
+                }
+                collapse(r, c);
+            }
+        }
+    }
+
+    void remove_deadends() {
+        collapse_tunnels(options.remove_deadends);
+    }
+
+    void clean_dungeon() {
+        if (options.remove_deadends) {
+            remove_deadends();
+        }
+//        fix_doors();
+//        empty_blocks();
+    }
 };
 
 Dungeon create_dungeon(Options
@@ -752,7 +829,7 @@ Dungeon create_dungeon(Options
     if (dungeon.options.add_stairs) {
         dungeon.emplace_stairs();
     }
-//    dungeon.clean_dungeon();
+    dungeon.clean_dungeon();
 
     return dungeon;
 }
