@@ -75,6 +75,12 @@ std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOS
                   }}
 };
 
+std::map<std::string, std::string> OPPOSITE = {
+        {"north", "south"},
+        {"south", "north"},
+        {"west",  "east"},
+        {"east",  "west"}
+};
 
 int NOTHING = 0x00000000;
 
@@ -169,6 +175,7 @@ public:
     std::vector<std::vector<int>> cell;
     std::map<int, Room> room;
     std::list<Stairs> stairs;
+    std::list<std::list<Door>> door;
 private:
     const int n_i;
     const int n_j;
@@ -803,13 +810,55 @@ public:
         collapse_tunnels(options.remove_deadends);
     }
 
+
+    void fix_doors() {
+        std::set<std::pair<int, int>> fixed;
+
+        for (auto[room_index, room_data]:room) {
+            for (auto[dir, _]:room_data.door) {
+                std::list<Door> shiny;
+                auto range = room_data.door.equal_range(dir);
+                for (auto it = range.first; it != range.second; it++) {
+                    auto door = it->second;
+                    auto door_r = door.row;
+                    auto door_c = door.col;
+                    auto door_cell = cell[door_r][door_c];
+                    if (!(door_cell & OPENSPACE)) {
+                        continue;
+                    }
+
+                    if (vstd::ctn(fixed, std::make_pair(door_r, door_c))) {
+                        shiny.push_back(door);
+                    } else {
+                        if (auto out_id = door.out_id) {
+                            auto out_dir = OPPOSITE[dir];
+                            room[out_id].door.insert(std::make_pair(out_dir, door));
+                        }
+                        shiny.push_back(door);
+                        fixed.insert(std::make_pair(door_r, door_c));
+                    }
+                }
+                if (!shiny.empty()) {
+                    room_data.door.erase(dir);
+                    for (auto shiny_door:shiny) {
+                        room_data.door.insert(std::make_pair(dir, shiny_door));
+                    }
+                    door.push_back(shiny);
+                } else {
+                    room_data.door.erase(dir);
+                }
+            }
+        }
+    }
+
     void clean_dungeon() {
         if (options.remove_deadends) {
             remove_deadends();
         }
-//        fix_doors();
+        fix_doors();
 //        empty_blocks();
     }
+
 };
 
 Dungeon create_dungeon(Options
