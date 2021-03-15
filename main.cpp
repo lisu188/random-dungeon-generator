@@ -111,15 +111,19 @@ public:
     }
 
     bool isBlockedRoom() {
-        return hasType(BLOCKED) || hasType(ROOM);
+        return hasType(BLOCKED)
+               || hasType(ROOM);
     }
 
     bool isBlockedCorridor() {
-        return hasType(BLOCKED) || hasType(PERIMETER) || hasType(CORRIDOR);
+        return hasType(BLOCKED)
+               || hasType(PERIMETER)
+               || hasType(CORRIDOR);
     }
 
     bool isBlockedDoor() {
-        return hasType(BLOCKED) || isDoorspace();
+        return hasType(BLOCKED)
+               || isDoorspace();
     }
 
     bool hasLabel() {
