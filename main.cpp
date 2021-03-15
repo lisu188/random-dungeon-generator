@@ -104,7 +104,6 @@ class Cell {
     int room_id;
     std::string label;
 public:
-
     void setType(CellType type) {
         types.clear();
         addType(type);
@@ -221,7 +220,6 @@ struct Room {
 };
 
 struct Stairs {
-
     int row;
     int col;
     int next_row;
@@ -237,7 +235,7 @@ struct Options {
     const int room_max = 9; //maximum room size
     const std::string room_layout = "Scattered";  //Packed, Scattered
     const std::string corridor_layout = "Straight";
-    const int remove_deadends = 50;//percentage
+    const int remove_deadends = 100;//percentage
     const int add_stairs = 2; //number of stairs
     const std::string map_style = "Standard";
     const int cell_size = 18; //pixels
@@ -507,7 +505,7 @@ public:
         for (int i = 0; i < n_opens && !list.empty(); i++) {
             std::list<Sill> sills;
             auto it = list.begin();
-            std::advance(it, vstd::rand(list.size()));
+            std::advance(it, vstd::rand(list.size() - 1));
             sills.splice(sills.begin(), list, it);
             auto sill = sills.front();
             auto door_r = sill.door_r;
