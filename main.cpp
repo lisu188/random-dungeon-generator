@@ -176,7 +176,7 @@ public:
     }
 
     void setLabel(std::string label) {
-        this->label = label;
+        this->label = std::move(label);
     }
 
     void clearTypes() {
@@ -599,14 +599,14 @@ public:
         }
     }
 
-    int alloc_opens(Room room) {
+    int alloc_opens(const Room &room) {
         auto room_h = ((room.south - room.north) / 2) + 1;
         auto room_w = ((room.east - room.west) / 2) + 1;
         auto flumph = sqrt(room_w * room_h);
         return (int) flumph + vstd::rand(flumph);
     }
 
-    std::optional<Sill> check_sill(Room room, int sill_r, int sill_c, std::string dir) {
+    std::optional<Sill> check_sill(const Room &room, int sill_r, int sill_c, const std::string &dir) {
         auto door_r = sill_r + DI[dir];
         auto door_c = sill_c + DJ[dir];
         auto door_cell = cell[door_r][door_c];
@@ -629,7 +629,7 @@ public:
         return std::make_optional<Sill>({sill_r, sill_c, dir, door_r, door_c, out_id});
     }
 
-    std::list<Sill> door_sills(Room room) {
+    std::list<Sill> door_sills(const Room &room) {
         std::list<Sill> sills;
         if (room.north >= 3) {
             for (int c = room.west; c <= room.east; c += 2) {
@@ -696,10 +696,10 @@ public:
         }
     }
 
-    void tunnel(int i, int j, std::string last_dir = "") {
+    void tunnel(int i, int j, const std::string &last_dir = "") {
         auto dirs = tunnel_dirs(last_dir);
 
-        for (auto dir:dirs)
+        for (const auto &dir:dirs)
             if (open_tunnel(i, j, dir)) {
                 auto next_i = i + DI[dir];
                 auto next_j = j + DJ[dir];
@@ -708,7 +708,7 @@ public:
             }
     }
 
-    std::deque<std::string> tunnel_dirs(std::string last_dir) {
+    std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
         auto p = CORRIDOR_LAYOUT[options.corridor_layout];
         std::deque<std::string> dirs;
         for (auto[key, value]:DJ) {
@@ -722,7 +722,7 @@ public:
         return dirs;
     }
 
-    bool open_tunnel(int i, int j, std::string dir) {
+    bool open_tunnel(int i, int j, const std::string &dir) {
         auto this_r = (i * 2) + 1;
         auto this_c = (j * 2) + 1;
         auto next_r = ((i + DI[dir]) * 2) + 1;
@@ -911,7 +911,7 @@ public:
             for (auto[dir, _]:room_data.door) {
                 dirs.insert(dir);
             }
-            for (auto dir:dirs) {
+            for (const auto &dir:dirs) {
                 std::list<Door> shiny;
                 auto range = room_data.door.equal_range(dir);
                 for (auto it = range.first; it != range.second; it++) {
@@ -936,7 +936,7 @@ public:
                 }
                 if (!shiny.empty()) {
                     room_data.door.erase(dir);
-                    for (auto shiny_door:shiny) {
+                    for (const auto &shiny_door:shiny) {
                         room_data.door.insert(std::make_pair(dir, shiny_door));
                     }
                     door.push_back(shiny);
@@ -969,7 +969,7 @@ public:
 
 Dungeon create_dungeon(Options
                        options) {
-    Dungeon dungeon(options);
+    Dungeon dungeon(std::move(options));
 
     dungeon.init_cells();
 
