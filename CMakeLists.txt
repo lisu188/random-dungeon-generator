@@ -10,8 +10,6 @@ FIND_PACKAGE(Boost 1.58 COMPONENTS system REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/vstd)
 
-add_library(random-dungeon-generator STATIC rdg.cpp)
+add_executable(random-dungeon-generator main.cpp)
 target_link_libraries(random-dungeon-generator ${Boost_LIBRARIES})
 
-add_executable(random-dungeon-generator-main main.cpp)
-target_link_libraries(random-dungeon-generator-main random-dungeon-generator)
