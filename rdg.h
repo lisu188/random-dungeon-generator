@@ -384,9 +384,8 @@ public:
             }
         }
 
-        std::tuple<int, int, int, int> set_room(int _i, int _j, int _height, int _width) {
-            int height, width;
-            if (_height < 0) {
+        std::tuple<int, int, int, int> set_room(int _i, int _j, int height, int width) {
+            if (height < 0) {
                 if (_i < 0) {
                     height = vstd::rand(room_radix) + room_base;
                 } else {
@@ -397,7 +396,7 @@ public:
                     height = vstd::rand(r) + room_base;
                 }
             }
-            if (_width < 0) {
+            if (width < 0) {
                 if (_j < 0) {
                     width = vstd::rand(room_radix) + room_base;
                 } else {
