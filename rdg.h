@@ -80,11 +80,11 @@ public:
             types.erase(type);
         }
 
-        bool hasType(CellType type) {
+        bool hasType(CellType type)const {
             return vstd::ctn(types, type);
         }
 
-        bool isOpenspace() {
+        bool isOpenspace() const {
             return hasType(ROOM)
                    || hasType(CORRIDOR);
         }
@@ -195,19 +195,19 @@ public:
         friend Dungeon rdg<T>::create_dungeon(Options options);
 
     public:
-        auto getCells() {
+      const  auto& getCells() {
             return cells;
         }
 
-        auto getStairs() {
+        const  auto& getStairs() {
             return stairs;
         }
 
-        auto getRooms() {
+        const   auto& getRooms() {
             return rooms;
         }
 
-        auto getDoors() {
+        const auto& getDoors() {
             return doors;
         }
 
