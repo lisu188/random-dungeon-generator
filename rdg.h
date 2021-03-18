@@ -7,14 +7,6 @@
 
 template<typename T=void>
 class rdg {
-    static std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT;
-    static std::map<std::string, int> DI;
-    static std::map<std::string, int> DJ;
-    static std::map<std::string, int> CORRIDOR_LAYOUT;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAIR_END;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOSE_END;
-    static std::map<std::string, std::string> OPPOSITE;
-
 public:
     enum CellType {
         BLOCKED,
@@ -32,6 +24,19 @@ public:
         STAIR_UP
     };
 
+    enum CorridorLayout {
+        BENT = 50,
+        STRAIGHT = 100,
+        LABYRINTH = 0
+    };
+private:
+    static std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT;
+    static std::map<std::string, int> DI;
+    static std::map<std::string, int> DJ;
+    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAIR_END;
+    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOSE_END;
+    static std::map<std::string, std::string> OPPOSITE;
+public:
     class Cell {
         std::set<CellType> types;
         int room_id;
@@ -167,7 +172,7 @@ public:
         int room_min = 3; //minimum rooms size
         int room_max = 9; //maximum rooms size
         std::string room_layout = "Scattered";  //Packed, Scattered
-        std::string corridor_layout = "Straight";
+        CorridorLayout corridor_layout = LABYRINTH;
         int remove_deadends = 100;//percentage
         int add_stairs = 2; //number of stairs
         std::string map_style = "Standard";
@@ -661,7 +666,7 @@ public:
         }
 
         std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
-            auto p = CORRIDOR_LAYOUT[options.corridor_layout];
+            auto p = options.corridor_layout;
             std::deque<std::string> dirs;
             for (auto[key, value]:DJ) {
                 dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
@@ -957,12 +962,7 @@ std::map<std::string, int> rdg<T>::DJ = {{"north", 0},
                                          {"south", 0},
                                          {"west",  -1},
                                          {"east",  1}};
-template<typename T>
-std::map<std::string, int> rdg<T>::CORRIDOR_LAYOUT = {
-        {"Labyrinth", 0},
-        {"Bent",      50},
-        {"Straight",  100}
-};
+
 template<typename T>
 std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> rdg<T>::STAIR_END = {
         {"north", {
