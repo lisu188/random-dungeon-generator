@@ -634,7 +634,7 @@ public:
                 auto label_r = int((_room.north + _room.south) / 2);
                 auto label_c = int((_room.west + _room.east - len) / 2) + 1;
 
-                for (auto c = 0; c < len; c++) {
+                for (decltype(len) c = 0; c < len; c++) {
                     auto _char = label.substr(c, 1);
                     cells[label_r][label_c + c].setLabel(_char);
                 }
