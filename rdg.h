@@ -7,14 +7,6 @@
 
 template<typename T=void>
 class rdg {
-    static std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT;
-    static std::map<std::string, int> DI;
-    static std::map<std::string, int> DJ;
-    static std::map<std::string, int> CORRIDOR_LAYOUT;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAIR_END;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOSE_END;
-    static std::map<std::string, std::string> OPPOSITE;
-
 public:
     enum CellType {
         BLOCKED,
@@ -32,6 +24,19 @@ public:
         STAIR_UP
     };
 
+    enum CorridorLayout {
+        BENT = 50,
+        STRAIGHT = 100,
+        LABYRINTH = 0
+    };
+private:
+    static std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT;
+    static std::map<std::string, int> DI;
+    static std::map<std::string, int> DJ;
+    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAIR_END;
+    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOSE_END;
+    static std::map<std::string, std::string> OPPOSITE;
+public:
     class Cell {
         std::set<CellType> types;
         int room_id;
@@ -80,7 +85,7 @@ public:
             types.erase(type);
         }
 
-        bool hasType(CellType type)const {
+        bool hasType(CellType type) const {
             return vstd::ctn(types, type);
         }
 
@@ -161,17 +166,17 @@ public:
     };
 
     struct Options {
-        const int n_rows = 39;  //must be an odd number
-        const int n_cols = 39;  //must be an odd number
-        const std::string dungeon_layout = "None";
-        const int room_min = 3; //minimum rooms size
-        const int room_max = 9; //maximum rooms size
-        const std::string room_layout = "Scattered";  //Packed, Scattered
-        const std::string corridor_layout = "Straight";
-        const int remove_deadends = 100;//percentage
-        const int add_stairs = 2; //number of stairs
-        const std::string map_style = "Standard";
-        const int cell_size = 18; //pixels
+        int n_rows = 39;  //must be an odd number
+        int n_cols = 39;  //must be an odd number
+        std::string dungeon_layout = "None";
+        int room_min = 3; //minimum rooms size
+        int room_max = 9; //maximum rooms size
+        std::string room_layout = "Scattered";  //Packed, Scattered
+        CorridorLayout corridor_layout = LABYRINTH;
+        int remove_deadends = 100;//percentage
+        int add_stairs = 2; //number of stairs
+        std::string map_style = "Standard";
+        int cell_size = 18; //pixels
     };
 
     struct Sill {
@@ -195,19 +200,19 @@ public:
         friend Dungeon rdg<T>::create_dungeon(Options options);
 
     public:
-      const  auto& getCells() {
+        const auto &getCells() {
             return cells;
         }
 
-        const  auto& getStairs() {
+        const auto &getStairs() {
             return stairs;
         }
 
-        const   auto& getRooms() {
+        const auto &getRooms() {
             return rooms;
         }
 
-        const auto& getDoors() {
+        const auto &getDoors() {
             return doors;
         }
 
@@ -661,7 +666,7 @@ public:
         }
 
         std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
-            auto p = CORRIDOR_LAYOUT[options.corridor_layout];
+            auto p = options.corridor_layout;
             std::deque<std::string> dirs;
             for (auto[key, value]:DJ) {
                 dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
@@ -957,12 +962,7 @@ std::map<std::string, int> rdg<T>::DJ = {{"north", 0},
                                          {"south", 0},
                                          {"west",  -1},
                                          {"east",  1}};
-template<typename T>
-std::map<std::string, int> rdg<T>::CORRIDOR_LAYOUT = {
-        {"Labyrinth", 0},
-        {"Bent",      50},
-        {"Straight",  100}
-};
+
 template<typename T>
 std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> rdg<T>::STAIR_END = {
         {"north", {
