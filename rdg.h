@@ -166,8 +166,8 @@ public:
     };
 
     struct Options {
-        int n_rows = 39;  //must be an odd number
-        int n_cols = 39;  //must be an odd number
+        int n_rows = 33;  //must be an odd number
+        int n_cols = 33;  //must be an odd number
         std::string dungeon_layout = "None";
         int room_min = 3; //minimum rooms size
         int room_max = 9; //maximum rooms size
@@ -653,16 +653,22 @@ public:
             }
         }
 
-        void tunnel(int i, int j, const std::string &last_dir = "") {
-            auto dirs = tunnel_dirs(last_dir);
+        void tunnel(int _i, int _j, const std::string &_last_dir = "") {
+            std::queue<std::tuple<int, int, std::string>> args;
+            args.push(std::make_tuple(_i, _j, _last_dir));
+            while (!args.empty()) {
+                auto arg = vstd::pop(args);
+                auto dirs = tunnel_dirs(std::get<2>(arg));
+                auto i = std::get<0>(arg);
+                auto j = std::get<1>(arg);
+                for (const auto &dir:dirs)
+                    if (open_tunnel(i, j, dir)) {
+                        auto next_i = i + DI[dir];
+                        auto next_j = j + DJ[dir];
 
-            for (const auto &dir:dirs)
-                if (open_tunnel(i, j, dir)) {
-                    auto next_i = i + DI[dir];
-                    auto next_j = j + DJ[dir];
-
-                    tunnel(next_i, next_j, dir);
-                }
+                        args.push(std::make_tuple(next_i, next_j, dir));
+                    }
+            }
         }
 
         std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
