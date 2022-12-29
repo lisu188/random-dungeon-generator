@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iostream>
 #include <utility>
 #include <map>
@@ -321,7 +323,7 @@ public:
                 return;
             }
 
-            auto[i, j, height, width]=set_room(_i, _j, _height, _width);
+            auto [i, j, height, width] = set_room(_i, _j, _height, _width);
 
             int r1 = i * 2 + 1;
             int c1 = j * 2 + 1;
@@ -335,7 +337,7 @@ public:
                 return;
             }
 
-            auto[hit, blocked] = sound_room(r1, c1, r2, c2);
+            auto [hit, blocked] = sound_room(r1, c1, r2, c2);
 
             if (blocked) {
                 return;
@@ -661,7 +663,7 @@ public:
                 auto dirs = tunnel_dirs(std::get<2>(arg));
                 auto i = std::get<0>(arg);
                 auto j = std::get<1>(arg);
-                for (const auto &dir:dirs)
+                for (const auto &dir: dirs)
                     if (open_tunnel(i, j, dir)) {
                         auto next_i = i + DI[dir];
                         auto next_j = j + DJ[dir];
@@ -674,7 +676,7 @@ public:
         std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
             auto p = options.corridor_layout;
             std::deque<std::string> dirs;
-            for (auto[key, value]:DJ) {
+            for (auto [key, value]: DJ) {
                 dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
             }
             std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
@@ -775,12 +777,12 @@ public:
         }
 
         bool check_tunnel(int r, int c, std::map<std::string, std::vector<std::vector<int>>> check) {
-            for (auto p:check["corridor"]) {
+            for (auto p: check["corridor"]) {
                 if (!cells[r + p[0]][c + p[1]].hasType(CORRIDOR)) {
                     return false;
                 }
             }
-            for (auto p:check["walled"]) {
+            for (auto p: check["walled"]) {
                 if (cells[r + p[0]][c + p[1]].isOpenspace()) {
                     return false;
                 }
@@ -799,7 +801,7 @@ public:
                     if (!cells[r][c].hasType(CORRIDOR) || cells[r][c].isStairs()) {
                         continue;
                     }
-                    for (auto[dir, dir_value]:STAIR_END) {
+                    for (auto [dir, dir_value]: STAIR_END) {
                         if (check_tunnel(r, c, dir_value)) {
                             Stairs end;
                             end.row = r;
@@ -822,15 +824,15 @@ public:
             if (!(cells[r][c].isOpenspace())) {
                 return;
             }
-            for (auto[key, value]:CLOSE_END)
+            for (auto [key, value]: CLOSE_END)
                 if (check_tunnel(r, c, value)) {
-                    for (auto p:value["close"]) {
+                    for (auto p: value["close"]) {
                         cells[r + p[0]][c + p[1]].clearTypes();
                     }
-                    for (auto p:value["open"]) {
+                    for (auto p: value["open"]) {
                         cells[r + p[0]][c + p[1]].addType(CORRIDOR);
                     }
-                    for (auto p:value["recurse"]) {
+                    for (auto p: value["recurse"]) {
                         collapse(r + p[0], c + p[1]);
                     }
                 }
@@ -869,12 +871,12 @@ public:
         void fix_doors() {
             std::set<std::pair<int, int>> fixed;
 
-            for (auto[room_index, room_data]:rooms) {
+            for (auto [room_index, room_data]: rooms) {
                 std::set<std::string> dirs;
-                for (auto[dir, _]:room_data.door) {
+                for (auto [dir, _]: room_data.door) {
                     dirs.insert(dir);
                 }
-                for (const auto &dir:dirs) {
+                for (const auto &dir: dirs) {
                     std::list<Door> shiny;
                     auto range = room_data.door.equal_range(dir);
                     for (auto it = range.first; it != range.second; it++) {
@@ -899,7 +901,7 @@ public:
                     }
                     if (!shiny.empty()) {
                         room_data.door.erase(dir);
-                        for (const auto &shiny_door:shiny) {
+                        for (const auto &shiny_door: shiny) {
                             room_data.door.insert(std::make_pair(dir, shiny_door));
                         }
                         doors.push_back(shiny);
