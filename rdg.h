@@ -11,6 +11,8 @@
 #include <deque>
 #include <queue>
 #include <algorithm>
+#include <iterator>
+#include <ranges>
 #include <vstd.h>
 
 template<typename T=void>
@@ -55,31 +57,31 @@ public:
             addType(type);
         }
 
-        bool isBlockedRoom() {
+        bool isBlockedRoom() const {
             return hasType(BLOCKED)
                    || hasType(ROOM);
         }
 
-        bool isBlockedCorridor() {
+        bool isBlockedCorridor() const {
             return hasType(BLOCKED)
                    || hasType(PERIMETER)
                    || hasType(CORRIDOR);
         }
 
-        bool isBlockedDoor() {
+        bool isBlockedDoor() const {
             return hasType(BLOCKED)
                    || isDoorspace();
         }
 
-        bool hasLabel() {
+        bool hasLabel() const {
             return !label.empty();
         }
 
-        std::string getLabel() {
+        const std::string &getLabel() const {
             return label;
         }
 
-        bool isEspace() {
+        bool isEspace() const {
             return hasType(ENTRANCE)
                    || isDoorspace()
                    || hasLabel();
@@ -102,7 +104,7 @@ public:
                    || hasType(CORRIDOR);
         }
 
-        bool isDoorspace() {
+        bool isDoorspace() const {
             return hasType(ARCH)
                    || hasType(DOOR)
                    || hasType(LOCKED)
@@ -111,7 +113,7 @@ public:
                    || hasType(PORTC);
         }
 
-        bool isStairs() {
+        bool isStairs() const {
             return hasType(STAIR_UP)
                    || hasType(STAIR_DN);
         }
@@ -120,7 +122,7 @@ public:
             this->room_id = room_id;
         }
 
-        int getRoomId() {
+        int getRoomId() const {
             return room_id;
         }
 
@@ -241,6 +243,14 @@ public:
         const int room_radix;
         int n_rooms = 0;
         int last_room_id = 0;
+
+        template<typename E>
+        static E pop_random(std::list<E> &items) {
+            auto it = std::next(items.begin(), static_cast<long>(vstd::rand(items.size())));
+            E value = *it;
+            items.erase(it);
+            return value;
+        }
 
         explicit Dungeon(Options
                          _options) :
@@ -372,8 +382,7 @@ public:
 
             int h = (r2 - r1) + 1;
             int w = (c2 - c1) + 1;
-            Room _room = {room_id, r1, c1, r1, r2, c1, c2, h, w, h * w};
-            rooms[room_id] = _room;
+            rooms[room_id] = {room_id, r1, c1, r1, r2, c1, c2, h, w, h * w};
 
             for (int r = r1 - 1; r <= r2 + 1; r++) {
                 if (!(cells[r][c1 - 1].hasType(ROOM)
@@ -466,14 +475,10 @@ public:
             auto n_opens = alloc_opens(room);
 
             for (int i = 0; i < n_opens && !list.empty(); i++) {
-                std::list<Sill> sills;
-                auto it = list.begin();
-                std::advance(it, vstd::rand(list.size() - 1));
-                sills.splice(sills.begin(), list, it);
-                auto sill = sills.front();
+                const auto sill = pop_random(list);
                 auto door_r = sill.door_r;
                 auto door_c = sill.door_c;
-                auto door_cell = cells[door_r][door_c];
+                const auto &door_cell = cells[door_r][door_c];
 
                 if (door_cell.isDoorspace()) {
                     n_opens--;
@@ -574,7 +579,7 @@ public:
         std::optional<Sill> check_sill(const Room &room, int sill_r, int sill_c, const std::string &dir) {
             auto door_r = sill_r + DI[dir];
             auto door_c = sill_c + DJ[dir];
-            auto door_cell = cells[door_r][door_c];
+            const auto &door_cell = cells[door_r][door_c];
             if (!(door_cell.hasType(PERIMETER))) {
                 return {};
             }
@@ -583,7 +588,7 @@ public:
             }
             auto out_r = door_r + DI[dir];
             auto out_c = door_c + DJ[dir];
-            auto out_cell = cells[out_r][out_c];
+            const auto &out_cell = cells[out_r][out_c];
             if (out_cell.hasType(BLOCKED)) {
                 return {};
             }
@@ -636,11 +641,11 @@ public:
 
         void label_rooms() {
             for (auto id = 1; id <= n_rooms; id++) {
-                auto _room = rooms[id];
-                auto label = vstd::str(_room.id);
+                const auto &room = rooms[id];
+                auto label = vstd::str(room.id);
                 auto len = label.length();
-                auto label_r = int((_room.north + _room.south) / 2);
-                auto label_c = int((_room.west + _room.east - len) / 2) + 1;
+                auto label_r = int((room.north + room.south) / 2);
+                auto label_c = int((room.west + room.east - len) / 2) + 1;
 
                 for (decltype(len) c = 0; c < len; c++) {
                     auto _char = label.substr(c, 1);
@@ -681,16 +686,18 @@ public:
 
         std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
             auto p = options.corridor_layout;
-            std::deque<std::string> dirs;
-            for (auto [key, value]: DJ) {
-                dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
-            }
-            std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
+            std::vector<std::string> dirs;
+            dirs.reserve(DJ.size());
+            std::ranges::copy(DJ | std::views::keys, std::back_inserter(dirs));
+            std::ranges::shuffle(dirs, vstd::rng());
 
             if (!last_dir.empty() && p && vstd::rand(100) < p) {
-                dirs.push_front(last_dir);
+                std::ranges::stable_partition(dirs, [&](const auto &dir) {
+                    return dir == last_dir;
+                });
             }
-            return dirs;
+
+            return {dirs.begin(), dirs.end()};
         }
 
         bool open_tunnel(int i, int j, const std::string &dir) {
@@ -759,10 +766,7 @@ public:
             }
 
             for (int i = 0; i < n; i++) {
-                auto it = list.begin();
-                std::advance(it, vstd::rand(list.size()));
-                Stairs stairs = *it;
-                list.erase(it);
+                auto stairs = pop_random(list);
 
                 auto r = stairs.row;
                 auto c = stairs.col;
@@ -782,13 +786,19 @@ public:
             }
         }
 
-        bool check_tunnel(int r, int c, std::map<std::string, std::vector<std::vector<int>>> check) {
-            for (auto p: check["corridor"]) {
+        bool check_tunnel(int r, int c, const std::map<std::string, std::vector<std::vector<int>>> &check) {
+            const auto corridor_it = check.find("corridor");
+            const auto walled_it = check.find("walled");
+            if (corridor_it == check.end() || walled_it == check.end()) {
+                return false;
+            }
+
+            for (const auto &p: corridor_it->second) {
                 if (!cells[r + p[0]][c + p[1]].hasType(CORRIDOR)) {
                     return false;
                 }
             }
-            for (auto p: check["walled"]) {
+            for (const auto &p: walled_it->second) {
                 if (cells[r + p[0]][c + p[1]].isOpenspace()) {
                     return false;
                 }
@@ -807,13 +817,13 @@ public:
                     if (!cells[r][c].hasType(CORRIDOR) || cells[r][c].isStairs()) {
                         continue;
                     }
-                    for (auto [dir, dir_value]: STAIR_END) {
+                    for (const auto &[dir, dir_value]: STAIR_END) {
                         if (check_tunnel(r, c, dir_value)) {
                             Stairs end;
                             end.row = r;
                             end.col = c;
 
-                            auto n = dir_value["next"];
+                            const auto &n = dir_value.at("next");
                             end.next_row = end.row + n[0][0];
                             end.next_col = end.col + n[0][1];
 
@@ -830,16 +840,22 @@ public:
             if (!(cells[r][c].isOpenspace())) {
                 return;
             }
-            for (auto [key, value]: CLOSE_END)
+            for (const auto &[key, value]: CLOSE_END)
                 if (check_tunnel(r, c, value)) {
-                    for (auto p: value["close"]) {
-                        cells[r + p[0]][c + p[1]].clearTypes();
+                    if (const auto close_it = value.find("close"); close_it != value.end()) {
+                        for (const auto &p: close_it->second) {
+                            cells[r + p[0]][c + p[1]].clearTypes();
+                        }
                     }
-                    for (auto p: value["open"]) {
-                        cells[r + p[0]][c + p[1]].addType(CORRIDOR);
+                    if (const auto open_it = value.find("open"); open_it != value.end()) {
+                        for (const auto &p: open_it->second) {
+                            cells[r + p[0]][c + p[1]].addType(CORRIDOR);
+                        }
                     }
-                    for (auto p: value["recurse"]) {
-                        collapse(r + p[0], c + p[1]);
+                    if (const auto recurse_it = value.find("recurse"); recurse_it != value.end()) {
+                        for (const auto &p: recurse_it->second) {
+                            collapse(r + p[0], c + p[1]);
+                        }
                     }
                 }
         }
@@ -877,19 +893,19 @@ public:
         void fix_doors() {
             std::set<std::pair<int, int>> fixed;
 
-            for (auto [room_index, room_data]: rooms) {
+            for (auto &[room_index, room_data]: rooms) {
                 std::set<std::string> dirs;
-                for (auto [dir, _]: room_data.door) {
+                for (const auto &[dir, _]: room_data.door) {
                     dirs.insert(dir);
                 }
                 for (const auto &dir: dirs) {
                     std::list<Door> shiny;
                     auto range = room_data.door.equal_range(dir);
                     for (auto it = range.first; it != range.second; it++) {
-                        auto door = it->second;
+                        const auto &door = it->second;
                         auto door_r = door.row;
                         auto door_c = door.col;
-                        auto door_cell = cells[door_r][door_c];
+                        const auto &door_cell = cells[door_r][door_c];
                         if (!(door_cell.isOpenspace())) {
                             continue;
                         }
@@ -898,7 +914,7 @@ public:
                             shiny.push_back(door);
                         } else {
                             if (auto out_id = door.out_id) {
-                                auto out_dir = OPPOSITE[dir];
+                                const auto &out_dir = OPPOSITE[dir];
                                 rooms[out_id].door.insert(std::make_pair(out_dir, door));
                             }
                             shiny.push_back(door);

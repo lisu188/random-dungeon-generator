@@ -63,7 +63,7 @@ static void test_generate_default_dungeon() {
     bool has_open_space = false;
     bool has_room_label = false;
     for (const auto &row : cells) {
-        for (auto cell : row) {
+        for (const auto &cell : row) {
             if (cell.isOpenspace()) {
                 has_open_space = true;
             }
@@ -95,7 +95,7 @@ static void test_layout_variants() {
     const auto &cells = dungeon.getCells();
     int open_cells = 0;
     for (const auto &row : cells) {
-        for (auto cell : row) {
+        for (const auto &cell : row) {
             if (cell.isOpenspace() || cell.hasLabel()) {
                 open_cells++;
             }
