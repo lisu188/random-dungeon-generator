@@ -1,26 +1,31 @@
 #include "rdg.h"
 
 #include <iostream>
+#include <string>
 
 int main() {
     auto dungeon = rdg::create_dungeon(rdg::Options());
+    std::string output;
+    output.reserve(static_cast<std::size_t>(dungeon.rowCount() * ((dungeon.colCount() * 2) + 1)));
+
     for (int row = 0; row < dungeon.rowCount(); ++row) {
         for (int col = 0; col < dungeon.colCount(); ++col) {
             const auto &cell = dungeon.cellAt(row, col);
             if (cell.hasLabel()) {
-                std::cout << cell.getLabel();
+                output.append(cell.getLabel());
             } else if (cell.hasType(rdg::CellType::ROOM)) {
-                std::cout << "X";
+                output.push_back('X');
             } else if (cell.hasType(rdg::CellType::CORRIDOR)) {
-                std::cout << "x";
+                output.push_back('x');
             } else if (cell.isDoorspace()) {
-                std::cout << "D";
+                output.push_back('D');
             } else {
-                std::cout << " ";
+                output.push_back(' ');
             }
-            std::cout << " ";
+            output.push_back(' ');
         }
-        std::cout << '\n';
+        output.push_back('\n');
     }
+    std::cout << output;
     return 0;
 }
