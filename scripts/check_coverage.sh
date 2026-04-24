@@ -8,8 +8,13 @@ pushd "$BUILD_DIR" >/dev/null
 
 gcov CMakeFiles/unit-tests.dir/tests/test_rdg.cpp.o >/tmp/gcov_rdg_report.txt
 
-coverage_line=$(awk '/File '\''\/workspace\/random-dungeon-generator\/rdg.h'\''/{getline; print; exit}' /tmp/gcov_rdg_report.txt)
+coverage_line=$(awk '/File '\''.*\/rdg.h'\''/{getline; print; exit}' /tmp/gcov_rdg_report.txt)
 coverage_pct=$(echo "$coverage_line" | sed -E 's/Lines executed:([0-9.]+)%.*/\1/')
+
+if [[ -z "$coverage_pct" || "$coverage_pct" == "$coverage_line" ]]; then
+  echo "Coverage FAIL: rdg.h coverage line not found"
+  exit 1
+fi
 
 if awk -v c="$coverage_pct" -v t="$THRESHOLD" 'BEGIN { exit !(c+0 >= t+0) }'; then
   echo "Coverage OK: rdg.h lines executed ${coverage_pct}% (threshold ${THRESHOLD}%)"
