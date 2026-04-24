@@ -12,8 +12,8 @@
 #include <queue>
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <iterator>
-#include <ranges>
 #include <vstd.h>
 
 template<typename T=void>
@@ -94,12 +94,17 @@ private:
     }
 public:
     class Cell {
-        std::set<CellType> types;
-        int room_id;
+        std::uint16_t types = 0;
+        int room_id = 0;
         std::string label;
+
+        [[nodiscard]] static constexpr std::uint16_t type_bit(CellType type) {
+            return static_cast<std::uint16_t>(1u << static_cast<unsigned>(type));
+        }
+
     public:
         void setType(CellType type) {
-            types.clear();
+            types = 0;
             addType(type);
         }
 
@@ -134,15 +139,15 @@ public:
         }
 
         void addType(CellType type) {
-            types.insert(type);
+            types |= type_bit(type);
         }
 
         void removeType(CellType type) {
-            types.erase(type);
+            types &= static_cast<std::uint16_t>(~type_bit(type));
         }
 
         [[nodiscard]] bool hasType(CellType type) const {
-            return vstd::ctn(types, type);
+            return (types & type_bit(type)) != 0;
         }
 
         [[nodiscard]] bool isOpenspace() const {
@@ -177,7 +182,7 @@ public:
         }
 
         void clearTypes() {
-            types.clear();
+            types = 0;
         }
 
         void clearLabel() {
@@ -236,12 +241,12 @@ public:
     };
 
     struct Sill {
-        const int sill_r;
-        const int sill_c;
-        const Direction dir;
-        const int door_r;
-        const int door_c;
-        const int out_id;
+        int sill_r;
+        int sill_c;
+        Direction dir;
+        int door_r;
+        int door_c;
+        int out_id;
     };
 
     struct Door {
@@ -291,12 +296,13 @@ public:
         int last_room_id = 0;
 
         template<typename E>
-        static E pop_random(std::list<E> &items) {
-            const auto offset = static_cast<typename std::list<E>::difference_type>(
-                    vstd::rand(static_cast<int>(items.size())));
-            auto it = std::next(items.begin(), offset);
-            E value = *it;
-            items.erase(it);
+        static E pop_random(std::vector<E> &items) {
+            auto index = static_cast<std::size_t>(vstd::rand(static_cast<int>(items.size())));
+            E value = std::move(items[index]);
+            if (index != items.size() - 1) {
+                items[index] = std::move(items.back());
+            }
+            items.pop_back();
             return value;
         }
 
@@ -313,11 +319,9 @@ public:
                 room_radix(((options.room_max - options.room_min) / 2) + 1) {}
 
         void init_cells() {
-            for (int r = 0; r <= n_rows; r++) {
-                cells.emplace_back();
-                for (int c = 0; c <= n_cols; c++) {
-                    cells[r].emplace_back();
-                }
+            cells.resize(static_cast<std::size_t>(n_rows + 1));
+            for (auto &row: cells) {
+                row.resize(static_cast<std::size_t>(n_cols + 1));
             }
 
             auto mask = DUNGEON_LAYOUT.find(options.dungeon_layout);
@@ -407,7 +411,7 @@ public:
                 return;
             }
 
-            if (!hit.empty()) {
+            if (hit) {
                 return;
             }
 
@@ -484,23 +488,18 @@ public:
                                    width);
         }
 
-        std::tuple<std::map<int, int>, bool> sound_room(int r1, int c1, int r2, int c2) {
-            std::map<int, int> hit;
+        std::tuple<bool, bool> sound_room(int r1, int c1, int r2, int c2) {
             for (int r = r1; r <= r2; r++) {
                 for (int c = c1; c <= c2; c++) {
                     if (cells[r][c].hasType(CellType::BLOCKED)) {
-                        return std::make_tuple(hit, true);
+                        return std::make_tuple(false, true);
                     }
                     if (cells[r][c].hasType(CellType::ROOM)) {
-                        auto id = cells[r][c].getRoomId();
-                        if (!vstd::ctn(hit, id)) {
-                            hit[id] = 0;
-                        }
-                        hit[id] = hit[id] + 1;
+                        return std::make_tuple(true, false);
                     }
                 }
             }
-            return std::make_tuple(hit, false);
+            return std::make_tuple(false, false);
         }
 
         void scatter_rooms() {
@@ -647,8 +646,11 @@ public:
             return std::make_optional<Sill>({sill_r, sill_c, dir, door_r, door_c, out_id});
         }
 
-        std::list<Sill> door_sills(const Room &room) {
-            std::list<Sill> sills;
+        std::vector<Sill> door_sills(const Room &room) {
+            std::vector<Sill> sills;
+            sills.reserve(static_cast<std::size_t>(
+                    ((room.east - room.west) / 2 + 1) * 2
+                    + ((room.south - room.north) / 2 + 1) * 2));
             if (room.north >= 3) {
                 for (int c = room.west; c <= room.east; c += 2) {
                     if (auto sill = check_sill(room.north, c, Direction::NORTH)) {
@@ -732,20 +734,18 @@ public:
             }
         }
 
-        std::deque<Direction> tunnel_dirs(const std::optional<Direction> &last_dir) {
+        std::array<Direction, 4> tunnel_dirs(const std::optional<Direction> &last_dir) {
             auto p = static_cast<int>(options.corridor_layout);
-            std::vector<Direction> dirs;
-            dirs.reserve(DIRECTIONS.size());
-            std::ranges::copy(DIRECTIONS, std::back_inserter(dirs));
-            std::ranges::shuffle(dirs, vstd::rng());
+            auto dirs = DIRECTIONS;
+            std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
 
             if (last_dir.has_value() && p > 0 && vstd::rand(100) < p) {
-                std::ranges::stable_partition(dirs, [&](Direction dir) {
+                std::stable_partition(dirs.begin(), dirs.end(), [&](Direction dir) {
                     return dir == last_dir.value();
                 });
             }
 
-            return {dirs.begin(), dirs.end()};
+            return dirs;
         }
 
         bool open_tunnel(int i, int j, Direction dir) {
@@ -848,8 +848,8 @@ public:
             return true;
         }
 
-        std::list<Stairs> stair_ends() {
-            std::list<Stairs> stairs;
+        std::vector<Stairs> stair_ends() {
+            std::vector<Stairs> stairs;
 
             for (auto i = 0; i < n_i; i++) {
                 auto r = (i * 2) + 1;
