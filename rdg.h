@@ -16,7 +16,7 @@
 template<typename T=void>
 class rdg {
 public:
-    enum CellType {
+    enum class CellType {
         BLOCKED,
         ROOM,
         CORRIDOR,
@@ -32,7 +32,7 @@ public:
         STAIR_UP
     };
 
-    enum CorridorLayout {
+    enum class CorridorLayout {
         BENT = 50,
         STRAIGHT = 100,
         LABYRINTH = 0
@@ -56,18 +56,18 @@ public:
         }
 
         bool isBlockedRoom() {
-            return hasType(BLOCKED)
-                   || hasType(ROOM);
+            return hasType(CellType::BLOCKED)
+                   || hasType(CellType::ROOM);
         }
 
         bool isBlockedCorridor() {
-            return hasType(BLOCKED)
-                   || hasType(PERIMETER)
-                   || hasType(CORRIDOR);
+            return hasType(CellType::BLOCKED)
+                   || hasType(CellType::PERIMETER)
+                   || hasType(CellType::CORRIDOR);
         }
 
         bool isBlockedDoor() {
-            return hasType(BLOCKED)
+            return hasType(CellType::BLOCKED)
                    || isDoorspace();
         }
 
@@ -80,7 +80,7 @@ public:
         }
 
         bool isEspace() {
-            return hasType(ENTRANCE)
+            return hasType(CellType::ENTRANCE)
                    || isDoorspace()
                    || hasLabel();
         }
@@ -98,22 +98,22 @@ public:
         }
 
         bool isOpenspace() const {
-            return hasType(ROOM)
-                   || hasType(CORRIDOR);
+            return hasType(CellType::ROOM)
+                   || hasType(CellType::CORRIDOR);
         }
 
         bool isDoorspace() {
-            return hasType(ARCH)
-                   || hasType(DOOR)
-                   || hasType(LOCKED)
-                   || hasType(TRAPPED)
-                   || hasType(SECRET)
-                   || hasType(PORTC);
+            return hasType(CellType::ARCH)
+                   || hasType(CellType::DOOR)
+                   || hasType(CellType::LOCKED)
+                   || hasType(CellType::TRAPPED)
+                   || hasType(CellType::SECRET)
+                   || hasType(CellType::PORTC);
         }
 
         bool isStairs() {
-            return hasType(STAIR_UP)
-                   || hasType(STAIR_DN);
+            return hasType(CellType::STAIR_UP)
+                   || hasType(CellType::STAIR_DN);
         }
 
         void setRoomId(int room_id) {
@@ -138,13 +138,13 @@ public:
 
         void clearEspace() {
             clearLabel();
-            removeType(ENTRANCE);
-            removeType(ARCH);
-            removeType(DOOR);
-            removeType(LOCKED);
-            removeType(TRAPPED);
-            removeType(SECRET);
-            removeType(PORTC);
+            removeType(CellType::ENTRANCE);
+            removeType(CellType::ARCH);
+            removeType(CellType::DOOR);
+            removeType(CellType::LOCKED);
+            removeType(CellType::TRAPPED);
+            removeType(CellType::SECRET);
+            removeType(CellType::PORTC);
         }
     };
 
@@ -180,7 +180,7 @@ public:
         int room_min = 3; //minimum rooms size
         int room_max = 9; //maximum rooms size
         std::string room_layout = "Scattered";  //Packed, Scattered
-        CorridorLayout corridor_layout = LABYRINTH;
+        CorridorLayout corridor_layout = CorridorLayout::LABYRINTH;
         int remove_deadends = 100;//percentage
         int add_stairs = 2; //number of stairs
         std::string map_style = "Standard";
@@ -278,7 +278,7 @@ public:
             for (int r = 0; r < n_rows; r++) {
                 for (int c = 0; c < n_cols; c++) {
                     if (!mask[r * r_x][c * c_x]) {
-                        cells[r][c].setType(BLOCKED);
+                        cells[r][c].setType(CellType::BLOCKED);
                     }
                 }
             }
@@ -292,7 +292,7 @@ public:
                 for (int c = 0; c < n_cols; c++) {
                     double d = sqrt((r - center_r) * (r - center_r) + (c - center_c) * (c - center_c));
                     if (d > center_c) {
-                        cells[r][c].setType(BLOCKED);
+                        cells[r][c].setType(CellType::BLOCKED);
                     }
                 }
             }
@@ -312,7 +312,7 @@ public:
                 for (int j = 0; j < n_j; j++) {
                     auto c = (j * 2) + 1;
 
-                    if (cells[r][c].hasType(ROOM)) {
+                    if (cells[r][c].hasType(CellType::ROOM)) {
                         continue;
                     }
                     if ((i == 0 || j == 0) && vstd::rand(0, 1)) {
@@ -360,12 +360,12 @@ public:
 
             for (int r = r1; r <= r2; r++) {
                 for (int c = c1; c <= c2; c++) {
-                    if (cells[r][c].hasType(ENTRANCE)) {
+                    if (cells[r][c].hasType(CellType::ENTRANCE)) {
                         cells[r][c].clearEspace();
-                    } else if (cells[r][c].hasType(PERIMETER)) {
-                        cells[r][c].removeType(PERIMETER);
+                    } else if (cells[r][c].hasType(CellType::PERIMETER)) {
+                        cells[r][c].removeType(CellType::PERIMETER);
                     }
-                    cells[r][c].addType(ROOM);
+                    cells[r][c].addType(CellType::ROOM);
                     cells[r][c].setRoomId(room_id);
                 }
             }
@@ -376,23 +376,23 @@ public:
             rooms[room_id] = _room;
 
             for (int r = r1 - 1; r <= r2 + 1; r++) {
-                if (!(cells[r][c1 - 1].hasType(ROOM)
-                      || cells[r][c1 - 1].hasType(ENTRANCE))) {
-                    cells[r][c1 - 1].addType(PERIMETER);
+                if (!(cells[r][c1 - 1].hasType(CellType::ROOM)
+                      || cells[r][c1 - 1].hasType(CellType::ENTRANCE))) {
+                    cells[r][c1 - 1].addType(CellType::PERIMETER);
                 }
-                if (!(cells[r][c2 + 1].hasType(ROOM)
-                      || cells[r][c2 + 1].hasType(ENTRANCE))) {
-                    cells[r][c2 + 1].addType(PERIMETER);
+                if (!(cells[r][c2 + 1].hasType(CellType::ROOM)
+                      || cells[r][c2 + 1].hasType(CellType::ENTRANCE))) {
+                    cells[r][c2 + 1].addType(CellType::PERIMETER);
                 }
             }
             for (int c = c1 - 1; c <= c2 + 1; c++) {
-                if (!(cells[r1 - 1][c].hasType(ROOM)
-                      || cells[r1 - 1][c].hasType(ENTRANCE))) {
-                    cells[r1 - 1][c].addType(PERIMETER);
+                if (!(cells[r1 - 1][c].hasType(CellType::ROOM)
+                      || cells[r1 - 1][c].hasType(CellType::ENTRANCE))) {
+                    cells[r1 - 1][c].addType(CellType::PERIMETER);
                 }
-                if (!(cells[r2 + 1][c].hasType(ROOM)
-                      || cells[r2 + 1][c].hasType(ENTRANCE))) {
-                    cells[r2 + 1][c].addType(PERIMETER);
+                if (!(cells[r2 + 1][c].hasType(CellType::ROOM)
+                      || cells[r2 + 1][c].hasType(CellType::ENTRANCE))) {
+                    cells[r2 + 1][c].addType(CellType::PERIMETER);
                 }
             }
         }
@@ -431,10 +431,10 @@ public:
             std::map<int, int> hit;
             for (int r = r1; r <= r2; r++) {
                 for (int c = c1; c <= c2; c++) {
-                    if (cells[r][c].hasType(BLOCKED)) {
+                    if (cells[r][c].hasType(CellType::BLOCKED)) {
                         return std::make_tuple(hit, true);
                     }
-                    if (cells[r][c].hasType(ROOM)) {
+                    if (cells[r][c].hasType(CellType::ROOM)) {
                         auto id = cells[r][c].getRoomId();
                         if (!vstd::ctn(hit, id)) {
                             hit[id] = 0;
@@ -499,41 +499,41 @@ public:
                     auto r = open_r + (DI[open_dir] * x);
                     auto c = open_c + (DJ[open_dir] * x);
 
-                    cells[r][c].removeType(PERIMETER);
-                    cells[r][c].addType(ENTRANCE);
+                    cells[r][c].removeType(CellType::PERIMETER);
+                    cells[r][c].addType(CellType::ENTRANCE);
                 }
-                int door_type = generate_door_type();
+                CellType door_type = generate_door_type();
                 Door door;
                 door.row = door_r;
                 door.col = door_c;
 
-                if (door_type == ARCH) {
-                    cells[door_r][door_c].addType(ARCH);
+                if (door_type == CellType::ARCH) {
+                    cells[door_r][door_c].addType(CellType::ARCH);
                     cells[door_r][door_c].setLabel("a");
                     door.key = "arch";
                     door.type = "Archway";
-                } else if (door_type == DOOR) {
-                    cells[door_r][door_c].addType(DOOR);
+                } else if (door_type == CellType::DOOR) {
+                    cells[door_r][door_c].addType(CellType::DOOR);
                     cells[door_r][door_c].setLabel("o");
                     door.key = "open";
                     door.type = "Unlocked Door";
-                } else if (door_type == LOCKED) {
-                    cells[door_r][door_c].addType(LOCKED);
+                } else if (door_type == CellType::LOCKED) {
+                    cells[door_r][door_c].addType(CellType::LOCKED);
                     cells[door_r][door_c].setLabel("x");
                     door.key = "lock";
                     door.type = "Locked Door";
-                } else if (door_type == TRAPPED) {
-                    cells[door_r][door_c].addType(TRAPPED);
+                } else if (door_type == CellType::TRAPPED) {
+                    cells[door_r][door_c].addType(CellType::TRAPPED);
                     cells[door_r][door_c].setLabel("t");
                     door.key = "trap";
                     door.type = "Trapped Door";
-                } else if (door_type == SECRET) {
-                    cells[door_r][door_c].addType(SECRET);
+                } else if (door_type == CellType::SECRET) {
+                    cells[door_r][door_c].addType(CellType::SECRET);
                     cells[door_r][door_c].setLabel("s");
                     door.key = "secret";
                     door.type = "Secret Door";
-                } else if (door_type == PORTC) {
-                    cells[door_r][door_c].addType(PORTC);
+                } else if (door_type == CellType::PORTC) {
+                    cells[door_r][door_c].addType(CellType::PORTC);
                     cells[door_r][door_c].setLabel("p");
                     door.key = "portc";
                     door.type = "Portcullis";
@@ -546,21 +546,21 @@ public:
             }
         }
 
-        int generate_door_type() {
+        CellType generate_door_type() {
             auto i = int(vstd::rand(110));
 
             if (i < 15) {
-                return ARCH;
+                return CellType::ARCH;
             } else if (i < 60) {
-                return DOOR;
+                return CellType::DOOR;
             } else if (i < 75) {
-                return LOCKED;
+                return CellType::LOCKED;
             } else if (i < 90) {
-                return TRAPPED;
+                return CellType::TRAPPED;
             } else if (i < 100) {
-                return SECRET;
+                return CellType::SECRET;
             } else {
-                return PORTC;
+                return CellType::PORTC;
             }
         }
 
@@ -575,7 +575,7 @@ public:
             auto door_r = sill_r + DI[dir];
             auto door_c = sill_c + DJ[dir];
             auto door_cell = cells[door_r][door_c];
-            if (!(door_cell.hasType(PERIMETER))) {
+            if (!(door_cell.hasType(CellType::PERIMETER))) {
                 return {};
             }
             if (door_cell.isBlockedDoor()) {
@@ -584,11 +584,11 @@ public:
             auto out_r = door_r + DI[dir];
             auto out_c = door_c + DJ[dir];
             auto out_cell = cells[out_r][out_c];
-            if (out_cell.hasType(BLOCKED)) {
+            if (out_cell.hasType(CellType::BLOCKED)) {
                 return {};
             }
             auto out_id = -1;
-            if (out_cell.hasType(ROOM)) {
+            if (out_cell.hasType(CellType::ROOM)) {
                 out_id = out_cell.getRoomId();
             }
             return std::make_optional<Sill>({sill_r, sill_c, dir, door_r, door_c, out_id});
@@ -655,7 +655,7 @@ public:
                 for (auto j = 1; j < n_j; j++) {
                     auto c = (j * 2) + 1;
 
-                    if (cells[r][c].hasType(CORRIDOR))continue;
+                    if (cells[r][c].hasType(CellType::CORRIDOR))continue;
                     tunnel(i, j);
                 }
             }
@@ -680,14 +680,14 @@ public:
         }
 
         std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
-            auto p = options.corridor_layout;
+            auto p = static_cast<int>(options.corridor_layout);
             std::deque<std::string> dirs;
             for (auto [key, value]: DJ) {
                 dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
             }
             std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
 
-            if (!last_dir.empty() && p && vstd::rand(100) < p) {
+            if (!last_dir.empty() && p > 0 && vstd::rand(100) < p) {
                 dirs.push_front(last_dir);
             }
             return dirs;
@@ -740,8 +740,8 @@ public:
 
             for (auto r = r1; r <= r2; r++) {
                 for (auto c = c1; c <= c2; c++) {
-                    cells[r][c].removeType(ENTRANCE);
-                    cells[r][c].addType(CORRIDOR);
+                    cells[r][c].removeType(CellType::ENTRANCE);
+                    cells[r][c].addType(CellType::CORRIDOR);
                 }
             }
             return true;
@@ -770,11 +770,11 @@ public:
 
 
                 if (type == 0) {
-                    cells[r][c].addType(STAIR_DN);
+                    cells[r][c].addType(CellType::STAIR_DN);
                     cells[r][c].setLabel("d");
                     stairs.key = "down";
                 } else {
-                    cells[r][c].addType(STAIR_UP);
+                    cells[r][c].addType(CellType::STAIR_UP);
                     cells[r][c].setLabel("u");
                     stairs.key = "up";
                 }
@@ -784,7 +784,7 @@ public:
 
         bool check_tunnel(int r, int c, std::map<std::string, std::vector<std::vector<int>>> check) {
             for (auto p: check["corridor"]) {
-                if (!cells[r + p[0]][c + p[1]].hasType(CORRIDOR)) {
+                if (!cells[r + p[0]][c + p[1]].hasType(CellType::CORRIDOR)) {
                     return false;
                 }
             }
@@ -804,7 +804,7 @@ public:
                 for (auto j = 0; j < n_j; j++) {
                     auto c = (j * 2) + 1;
 
-                    if (!cells[r][c].hasType(CORRIDOR) || cells[r][c].isStairs()) {
+                    if (!cells[r][c].hasType(CellType::CORRIDOR) || cells[r][c].isStairs()) {
                         continue;
                     }
                     for (auto [dir, dir_value]: STAIR_END) {
@@ -836,7 +836,7 @@ public:
                         cells[r + p[0]][c + p[1]].clearTypes();
                     }
                     for (auto p: value["open"]) {
-                        cells[r + p[0]][c + p[1]].addType(CORRIDOR);
+                        cells[r + p[0]][c + p[1]].addType(CellType::CORRIDOR);
                     }
                     for (auto p: value["recurse"]) {
                         collapse(r + p[0], c + p[1]);
@@ -921,7 +921,7 @@ public:
         void empty_blocks() {
             for (auto r = 0; r <= n_rows; r++) {
                 for (auto c = 0; c <= n_cols; c++) {
-                    if (cells[r][c].hasType(BLOCKED)) {
+                    if (cells[r][c].hasType(CellType::BLOCKED)) {
                         cells[r][c].clearTypes();
                     }
                 }

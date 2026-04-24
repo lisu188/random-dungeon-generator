@@ -7,25 +7,25 @@
 static void test_cell_type_management() {
     rdg<>::Cell cell;
 
-    cell.setType(rdg<>::ROOM);
-    assert(cell.hasType(rdg<>::ROOM));
-    assert(!cell.hasType(rdg<>::CORRIDOR));
+    cell.setType(rdg<>::CellType::ROOM);
+    assert(cell.hasType(rdg<>::CellType::ROOM));
+    assert(!cell.hasType(rdg<>::CellType::CORRIDOR));
     assert(cell.isBlockedRoom());
     assert(cell.isOpenspace());
 
-    cell.addType(rdg<>::ENTRANCE);
+    cell.addType(rdg<>::CellType::ENTRANCE);
     assert(cell.isEspace());
 
-    cell.addType(rdg<>::LOCKED);
+    cell.addType(rdg<>::CellType::LOCKED);
     assert(cell.isDoorspace());
     assert(cell.isBlockedDoor());
 
     cell.clearEspace();
-    assert(!cell.hasType(rdg<>::ENTRANCE));
-    assert(!cell.hasType(rdg<>::LOCKED));
+    assert(!cell.hasType(rdg<>::CellType::ENTRANCE));
+    assert(!cell.hasType(rdg<>::CellType::LOCKED));
 
     cell.clearTypes();
-    assert(!cell.hasType(rdg<>::ROOM));
+    assert(!cell.hasType(rdg<>::CellType::ROOM));
 }
 
 static void test_cell_labels_and_stairs() {
@@ -39,10 +39,10 @@ static void test_cell_labels_and_stairs() {
     cell.clearLabel();
     assert(!cell.hasLabel());
 
-    cell.addType(rdg<>::STAIR_UP);
+    cell.addType(rdg<>::CellType::STAIR_UP);
     assert(cell.isStairs());
-    cell.removeType(rdg<>::STAIR_UP);
-    cell.addType(rdg<>::STAIR_DN);
+    cell.removeType(rdg<>::CellType::STAIR_UP);
+    cell.addType(rdg<>::CellType::STAIR_DN);
     assert(cell.isStairs());
 }
 
@@ -84,7 +84,7 @@ static void test_layout_variants() {
     options.n_cols = 25;
     options.dungeon_layout = "Cross";
     options.room_layout = "Packed";
-    options.corridor_layout = rdg<>::STRAIGHT;
+    options.corridor_layout = rdg<>::CorridorLayout::STRAIGHT;
     options.add_stairs = 0;
     options.remove_deadends = 100;
 

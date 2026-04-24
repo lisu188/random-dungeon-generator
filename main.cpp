@@ -6,9 +6,9 @@ int main() {
         for (auto cell:row) {
             if (cell.hasLabel()) {
                 std::cout << cell.getLabel();
-            } else if (cell.hasType(rdg<>::ROOM)) {
+            } else if (cell.hasType(rdg<>::CellType::ROOM)) {
                 std::cout << "X";
-            } else if (cell.hasType(rdg<>::CORRIDOR)) {
+            } else if (cell.hasType(rdg<>::CellType::CORRIDOR)) {
                 std::cout << "x";
             } else if (cell.isDoorspace()) {
                 std::cout << "D";
