@@ -5,13 +5,15 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+add_library(rdg INTERFACE)
+target_include_directories(rdg INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(rdg INTERFACE cxx_std_23)
+
 add_executable(random-dungeon-generator main.cpp)
-target_include_directories(random-dungeon-generator PRIVATE ${CMAKE_SOURCE_DIR})
-target_compile_features(random-dungeon-generator PRIVATE cxx_std_23)
+target_link_libraries(random-dungeon-generator PRIVATE rdg)
 
 add_executable(unit-tests tests/test_rdg.cpp)
-target_include_directories(unit-tests PRIVATE ${CMAKE_SOURCE_DIR})
-target_compile_features(unit-tests PRIVATE cxx_std_23)
+target_link_libraries(unit-tests PRIVATE rdg)
 
 foreach(target_name random-dungeon-generator unit-tests)
   target_compile_options(${target_name} PRIVATE
