@@ -5,6 +5,12 @@
 #include <map>
 #include <vector>
 #include <cmath>
+#include <set>
+#include <list>
+#include <optional>
+#include <deque>
+#include <queue>
+#include <algorithm>
 #include <vstd.h>
 
 template<typename T=void>
@@ -535,7 +541,7 @@ public:
 
                 door.out_id = out_id;
                 if (out_id) {
-                    room.door.insert({open_dir, door});
+                    room.door.insert(std::make_pair(open_dir, door));
                 }
             }
         }
