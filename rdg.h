@@ -877,7 +877,7 @@ public:
         void fix_doors() {
             std::set<std::pair<int, int>> fixed;
 
-            for (auto [room_index, room_data]: rooms) {
+            for (auto &[room_index, room_data]: rooms) {
                 std::set<std::string> dirs;
                 for (auto [dir, _]: room_data.door) {
                     dirs.insert(dir);
