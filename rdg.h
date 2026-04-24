@@ -1474,7 +1474,8 @@ private:
 }
 
 [[nodiscard]] inline Dungeon create_dungeon(Options options) {
-    return create_dungeon(std::move(options), vstd::rng());
+    static thread_local std::mt19937 rng{std::random_device{}()};
+    return create_dungeon(std::move(options), rng);
 }
 
 } // namespace rdg
