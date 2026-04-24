@@ -54,9 +54,9 @@ static void test_cell_labels_and_stairs() {
     rdg::Cell cell;
 
     require(!cell.hasLabel());
-    cell.setLabel("A1");
+    cell.setLabel('A');
     require(cell.hasLabel());
-    require(cell.getLabel() == "A1");
+    require(cell.getLabel() == "A");
 
     cell.clearLabel();
     require(!cell.hasLabel());
@@ -135,6 +135,17 @@ static void test_option_helpers() {
     require(rdg::validate_options(options).has_value());
 }
 
+static void test_compact_metadata_helpers() {
+    rdg::Door door;
+    door.kind = rdg::DoorKind::Secret;
+    require(door.getKey() == "secret");
+    require(door.getType() == "Secret Door");
+
+    rdg::Stairs stairs;
+    stairs.kind = rdg::StairKind::Up;
+    require(stairs.getKey() == "up");
+}
+
 static void test_seeded_rng_is_deterministic() {
     rdg::Options options;
     options.n_rows = 21;
@@ -149,6 +160,8 @@ static void test_seeded_rng_is_deterministic() {
     auto second = rdg::create_dungeon(options, second_rng);
 
     require(dungeon_checksum(first) == dungeon_checksum(second));
+    require(first.getStairs().size() == 2);
+    require(!first.getStairs().front().getKey().empty());
 }
 
 int main() {
@@ -157,6 +170,7 @@ int main() {
     test_generate_default_dungeon();
     test_layout_variants();
     test_option_helpers();
+    test_compact_metadata_helpers();
     test_seeded_rng_is_deterministic();
     return 0;
 }
