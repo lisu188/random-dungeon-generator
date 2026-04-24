@@ -12,6 +12,8 @@
 #include <queue>
 #include <algorithm>
 #include <array>
+#include <iterator>
+#include <ranges>
 #include <vstd.h>
 
 template<typename T=void>
@@ -288,6 +290,16 @@ public:
         int n_rooms = 0;
         int last_room_id = 0;
 
+        template<typename E>
+        static E pop_random(std::list<E> &items) {
+            const auto offset = static_cast<typename std::list<E>::difference_type>(
+                    vstd::rand(static_cast<int>(items.size())));
+            auto it = std::next(items.begin(), offset);
+            E value = *it;
+            items.erase(it);
+            return value;
+        }
+
         explicit Dungeon(Options
                          _options) :
                 options(std::move(_options)),
@@ -418,8 +430,7 @@ public:
 
             int h = (r2 - r1) + 1;
             int w = (c2 - c1) + 1;
-            Room _room = {room_id, r1, c1, r1, r2, c1, c2, h, w, h * w};
-            rooms[room_id] = _room;
+            rooms[room_id] = {room_id, r1, c1, r1, r2, c1, c2, h, w, h * w, {}};
 
             for (int r = r1 - 1; r <= r2 + 1; r++) {
                 if (!(cells[r][c1 - 1].hasType(CellType::ROOM)
@@ -512,14 +523,10 @@ public:
             auto n_opens = alloc_opens(room);
 
             for (int i = 0; i < n_opens && !list.empty(); i++) {
-                std::list<Sill> sills;
-                auto it = list.begin();
-                std::advance(it, vstd::rand(list.size() - 1));
-                sills.splice(sills.begin(), list, it);
-                auto sill = sills.front();
+                const auto sill = pop_random(list);
                 auto door_r = sill.door_r;
                 auto door_c = sill.door_c;
-                auto door_cell = cells[door_r][door_c];
+                const auto &door_cell = cells[door_r][door_c];
 
                 if (door_cell.isDoorspace()) {
                     n_opens--;
@@ -620,7 +627,7 @@ public:
         std::optional<Sill> check_sill(int sill_r, int sill_c, Direction dir) {
             auto door_r = sill_r + dir_i(dir);
             auto door_c = sill_c + dir_j(dir);
-            auto door_cell = cells[door_r][door_c];
+            const auto &door_cell = cells[door_r][door_c];
             if (!(door_cell.hasType(CellType::PERIMETER))) {
                 return {};
             }
@@ -629,7 +636,7 @@ public:
             }
             auto out_r = door_r + dir_i(dir);
             auto out_c = door_c + dir_j(dir);
-            auto out_cell = cells[out_r][out_c];
+            const auto &out_cell = cells[out_r][out_c];
             if (out_cell.hasType(CellType::BLOCKED)) {
                 return {};
             }
@@ -682,11 +689,11 @@ public:
 
         void label_rooms() {
             for (auto id = 1; id <= n_rooms; id++) {
-                auto _room = rooms[id];
-                auto label = vstd::str(_room.id);
+                const auto &room = rooms[id];
+                auto label = vstd::str(room.id);
                 auto len = label.length();
-                auto label_r = int((_room.north + _room.south) / 2);
-                auto label_c = int((_room.west + _room.east - len) / 2) + 1;
+                auto label_r = int((room.north + room.south) / 2);
+                auto label_c = int((room.west + room.east - len) / 2) + 1;
 
                 for (decltype(len) c = 0; c < len; c++) {
                     auto _char = label.substr(c, 1);
@@ -727,16 +734,18 @@ public:
 
         std::deque<Direction> tunnel_dirs(const std::optional<Direction> &last_dir) {
             auto p = static_cast<int>(options.corridor_layout);
-            std::deque<Direction> dirs;
-            for (auto dir: DIRECTIONS) {
-                dirs.push_back(dir);//TODO: if(vstd::rand(1)push_back():else front
-            }
-            std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
+            std::vector<Direction> dirs;
+            dirs.reserve(DIRECTIONS.size());
+            std::ranges::copy(DIRECTIONS, std::back_inserter(dirs));
+            std::ranges::shuffle(dirs, vstd::rng());
 
             if (last_dir.has_value() && p > 0 && vstd::rand(100) < p) {
-                dirs.push_front(last_dir.value());
+                std::ranges::stable_partition(dirs, [&](Direction dir) {
+                    return dir == last_dir.value();
+                });
             }
-            return dirs;
+
+            return {dirs.begin(), dirs.end()};
         }
 
         bool open_tunnel(int i, int j, Direction dir) {
@@ -805,10 +814,7 @@ public:
             }
 
             for (int i = 0; i < n; i++) {
-                auto it = list.begin();
-                std::advance(it, vstd::rand(list.size()));
-                Stairs stairs = *it;
-                list.erase(it);
+                auto stairs = pop_random(list);
 
                 auto r = stairs.row;
                 auto c = stairs.col;
@@ -925,19 +931,20 @@ public:
         void fix_doors() {
             std::set<std::pair<int, int>> fixed;
 
-            for (auto &[room_index, room_data]: rooms) {
+            for (auto &room_entry: rooms) {
+                auto &room_data = room_entry.second;
                 std::set<Direction> dirs;
-                for (auto [dir, _]: room_data.door) {
-                    dirs.insert(dir);
+                for (const auto &door_entry: room_data.door) {
+                    dirs.insert(door_entry.first);
                 }
                 for (const auto &dir: dirs) {
                     std::list<Door> shiny;
                     auto range = room_data.door.equal_range(dir);
                     for (auto it = range.first; it != range.second; it++) {
-                        auto door = it->second;
+                        const auto &door = it->second;
                         auto door_r = door.row;
                         auto door_c = door.col;
-                        auto door_cell = cells[door_r][door_c];
+                        const auto &door_cell = cells[door_r][door_c];
                         if (!(door_cell.isOpenspace())) {
                             continue;
                         }
@@ -946,7 +953,7 @@ public:
                             shiny.push_back(door);
                         } else {
                             if (auto out_id = door.out_id) {
-                                auto out_dir = opposite(dir);
+                                const auto out_dir = opposite(dir);
                                 rooms[out_id].door.insert(std::make_pair(out_dir, door));
                             }
                             shiny.push_back(door);
