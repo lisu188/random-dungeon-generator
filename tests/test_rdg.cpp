@@ -1,108 +1,154 @@
 #include "rdg.h"
 
 #include <algorithm>
-#include <cassert>
+#include <cstdlib>
+#include <random>
 #include <string>
 
+static void require(bool condition) {
+    if (!condition) {
+        std::abort();
+    }
+}
+
+static int dungeon_checksum(const rdg::Dungeon &dungeon) {
+    int checksum = 0;
+    for (const auto &cell: dungeon.getCells()) {
+        if (cell.isOpenspace()) {
+            checksum += 1;
+        }
+        if (cell.hasLabel()) {
+            checksum += static_cast<unsigned char>(cell.getLabel().front());
+        }
+    }
+    checksum += static_cast<int>(dungeon.getRooms().size()) * 17;
+    checksum += static_cast<int>(dungeon.getStairs().size()) * 31;
+    return checksum;
+}
+
 static void test_cell_type_management() {
-    rdg<>::Cell cell;
+    rdg::Cell cell;
 
-    cell.setType(rdg<>::CellType::ROOM);
-    assert(cell.hasType(rdg<>::CellType::ROOM));
-    assert(!cell.hasType(rdg<>::CellType::CORRIDOR));
-    assert(cell.isBlockedRoom());
-    assert(cell.isOpenspace());
+    cell.setType(rdg::CellType::ROOM);
+    require(cell.hasType(rdg::CellType::ROOM));
+    require(!cell.hasType(rdg::CellType::CORRIDOR));
+    require(cell.isBlockedRoom());
+    require(cell.isOpenspace());
 
-    cell.addType(rdg<>::CellType::ENTRANCE);
-    assert(cell.isEspace());
+    cell.addType(rdg::CellType::ENTRANCE);
+    require(cell.isEspace());
 
-    cell.addType(rdg<>::CellType::LOCKED);
-    assert(cell.isDoorspace());
-    assert(cell.isBlockedDoor());
+    cell.addType(rdg::CellType::LOCKED);
+    require(cell.isDoorspace());
+    require(cell.isBlockedDoor());
 
     cell.clearEspace();
-    assert(!cell.hasType(rdg<>::CellType::ENTRANCE));
-    assert(!cell.hasType(rdg<>::CellType::LOCKED));
+    require(!cell.hasType(rdg::CellType::ENTRANCE));
+    require(!cell.hasType(rdg::CellType::LOCKED));
 
     cell.clearTypes();
-    assert(!cell.hasType(rdg<>::CellType::ROOM));
+    require(!cell.hasType(rdg::CellType::ROOM));
 }
 
 static void test_cell_labels_and_stairs() {
-    rdg<>::Cell cell;
+    rdg::Cell cell;
 
-    assert(!cell.hasLabel());
+    require(!cell.hasLabel());
     cell.setLabel("A1");
-    assert(cell.hasLabel());
-    assert(cell.getLabel() == "A1");
+    require(cell.hasLabel());
+    require(cell.getLabel() == "A1");
 
     cell.clearLabel();
-    assert(!cell.hasLabel());
+    require(!cell.hasLabel());
 
-    cell.addType(rdg<>::CellType::STAIR_UP);
-    assert(cell.isStairs());
-    cell.removeType(rdg<>::CellType::STAIR_UP);
-    cell.addType(rdg<>::CellType::STAIR_DN);
-    assert(cell.isStairs());
+    cell.addType(rdg::CellType::STAIR_UP);
+    require(cell.isStairs());
+    cell.removeType(rdg::CellType::STAIR_UP);
+    cell.addType(rdg::CellType::STAIR_DN);
+    require(cell.isStairs());
 }
 
 static void test_generate_default_dungeon() {
-    rdg<>::Options options;
+    rdg::Options options;
     options.n_rows = 21;
     options.n_cols = 21;
     options.add_stairs = 2;
     options.remove_deadends = 50;
 
-    auto dungeon = rdg<>::create_dungeon(options);
+    auto dungeon = rdg::create_dungeon(options);
 
     const auto &cells = dungeon.getCells();
-    assert(!cells.empty());
-    assert(static_cast<int>(cells.size()) == options.n_rows);
-    assert(static_cast<int>(cells.front().size()) == options.n_cols);
+    require(!cells.empty());
+    require(static_cast<int>(cells.size()) == options.n_rows * options.n_cols);
+    require(dungeon.rowCount() == options.n_rows);
+    require(dungeon.colCount() == options.n_cols);
 
     bool has_open_space = false;
     bool has_room_label = false;
-    for (const auto &row : cells) {
-        for (const auto &cell : row) {
-            if (cell.isOpenspace()) {
-                has_open_space = true;
-            }
-            if (cell.hasLabel()) {
-                has_room_label = true;
-            }
+    for (const auto &cell : cells) {
+        if (cell.isOpenspace()) {
+            has_open_space = true;
+        }
+        if (cell.hasLabel()) {
+            has_room_label = true;
         }
     }
 
-    assert(has_open_space);
-    assert(has_room_label);
-    assert(!dungeon.getRooms().empty());
+    require(has_open_space);
+    require(has_room_label);
+    require(!dungeon.getRooms().empty());
 }
 
 static void test_layout_variants() {
-    rdg<>::Options options;
+    rdg::Options options;
     options.n_rows = 25;
     options.n_cols = 25;
-    options.dungeon_layout = "Cross";
-    options.room_layout = "Packed";
-    options.corridor_layout = rdg<>::CorridorLayout::STRAIGHT;
+    options.dungeon_layout = rdg::DungeonLayout::Cross;
+    options.room_layout = rdg::RoomLayout::Packed;
+    options.corridor_layout = rdg::CorridorLayout::STRAIGHT;
     options.add_stairs = 0;
     options.remove_deadends = 100;
 
-    auto dungeon = rdg<>::create_dungeon(options);
+    auto dungeon = rdg::create_dungeon(options);
 
-    assert(!dungeon.getRooms().empty());
+    require(!dungeon.getRooms().empty());
 
     const auto &cells = dungeon.getCells();
     int open_cells = 0;
-    for (const auto &row : cells) {
-        for (const auto &cell : row) {
-            if (cell.isOpenspace() || cell.hasLabel()) {
-                open_cells++;
-            }
+    for (const auto &cell : cells) {
+        if (cell.isOpenspace() || cell.hasLabel()) {
+            open_cells++;
         }
     }
 
-    assert(open_cells > 0);
+    require(open_cells > 0);
+}
+
+static void test_option_helpers() {
+    require(rdg::dungeon_layout_from_string("Cross") == rdg::DungeonLayout::Cross);
+    require(rdg::room_layout_from_string("Packed") == rdg::RoomLayout::Packed);
+    require(rdg::map_style_from_string("Standard") == rdg::MapStyle::Standard);
+    require(rdg::to_string(rdg::DungeonLayout::Round) == "Round");
+
+    rdg::Options options;
+    options.n_rows = 20;
+    require(rdg::validate_options(options).has_value());
+}
+
+static void test_seeded_rng_is_deterministic() {
+    rdg::Options options;
+    options.n_rows = 21;
+    options.n_cols = 21;
+    options.add_stairs = 2;
+    options.remove_deadends = 50;
+
+    std::mt19937 first_rng{123};
+    std::mt19937 second_rng{123};
+
+    auto first = rdg::create_dungeon(options, first_rng);
+    auto second = rdg::create_dungeon(options, second_rng);
+
+    require(dungeon_checksum(first) == dungeon_checksum(second));
 }
 
 int main() {
@@ -110,5 +156,7 @@ int main() {
     test_cell_labels_and_stairs();
     test_generate_default_dungeon();
     test_layout_variants();
+    test_option_helpers();
+    test_seeded_rng_is_deterministic();
     return 0;
 }
