@@ -11,6 +11,7 @@
 #include <deque>
 #include <queue>
 #include <algorithm>
+#include <array>
 #include <vstd.h>
 
 template<typename T=void>
@@ -37,13 +38,58 @@ public:
         STRAIGHT = 100,
         LABYRINTH = 0
     };
+
+    enum class Direction {
+        NORTH = 0,
+        SOUTH = 1,
+        EAST = 2,
+        WEST = 3
+    };
+
 private:
+    struct TunnelOffsets {
+        std::vector<std::array<int, 2>> walled;
+        std::vector<std::array<int, 2>> corridor;
+        std::vector<std::array<int, 2>> stair;
+        std::vector<std::array<int, 2>> next;
+        std::vector<std::array<int, 2>> close;
+        std::vector<std::array<int, 2>> open;
+        std::vector<std::array<int, 2>> recurse;
+    };
+
+    static constexpr std::array<Direction, 4> DIRECTIONS = {
+            Direction::NORTH,
+            Direction::SOUTH,
+            Direction::EAST,
+            Direction::WEST
+    };
     static std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT;
-    static std::map<std::string, int> DI;
-    static std::map<std::string, int> DJ;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAIR_END;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOSE_END;
-    static std::map<std::string, std::string> OPPOSITE;
+    static constexpr std::array<int, 4> DI = {-1, 1, 0, 0};
+    static constexpr std::array<int, 4> DJ = {0, 0, 1, -1};
+    static const std::array<TunnelOffsets, 4> STAIR_END;
+    static const std::array<TunnelOffsets, 4> CLOSE_END;
+    static constexpr std::array<Direction, 4> OPPOSITE = {
+            Direction::SOUTH,
+            Direction::NORTH,
+            Direction::WEST,
+            Direction::EAST
+    };
+
+    static constexpr size_t direction_index(Direction dir) {
+        return static_cast<size_t>(dir);
+    }
+
+    static constexpr int dir_i(Direction dir) {
+        return DI[direction_index(dir)];
+    }
+
+    static constexpr int dir_j(Direction dir) {
+        return DJ[direction_index(dir)];
+    }
+
+    static constexpr Direction opposite(Direction dir) {
+        return OPPOSITE[direction_index(dir)];
+    }
 public:
     class Cell {
         std::set<CellType> types;
@@ -162,7 +208,7 @@ public:
         int width;
         int area;
 
-        std::multimap<std::string, Door> door;
+        std::multimap<Direction, Door> door;
     };
 
     struct Stairs {
@@ -190,7 +236,7 @@ public:
     struct Sill {
         const int sill_r;
         const int sill_c;
-        const std::string dir;
+        const Direction dir;
         const int door_r;
         const int door_c;
         const int out_id;
@@ -496,8 +542,8 @@ public:
                 auto open_dir = sill.dir;
 
                 for (auto x = 0; x < 3; x++) {
-                    auto r = open_r + (DI[open_dir] * x);
-                    auto c = open_c + (DJ[open_dir] * x);
+                    auto r = open_r + (dir_i(open_dir) * x);
+                    auto c = open_c + (dir_j(open_dir) * x);
 
                     cells[r][c].removeType(CellType::PERIMETER);
                     cells[r][c].addType(CellType::ENTRANCE);
@@ -571,9 +617,9 @@ public:
             return (int) flumph + vstd::rand(flumph);
         }
 
-        std::optional<Sill> check_sill(const Room &room, int sill_r, int sill_c, const std::string &dir) {
-            auto door_r = sill_r + DI[dir];
-            auto door_c = sill_c + DJ[dir];
+        std::optional<Sill> check_sill(int sill_r, int sill_c, Direction dir) {
+            auto door_r = sill_r + dir_i(dir);
+            auto door_c = sill_c + dir_j(dir);
             auto door_cell = cells[door_r][door_c];
             if (!(door_cell.hasType(CellType::PERIMETER))) {
                 return {};
@@ -581,8 +627,8 @@ public:
             if (door_cell.isBlockedDoor()) {
                 return {};
             }
-            auto out_r = door_r + DI[dir];
-            auto out_c = door_c + DJ[dir];
+            auto out_r = door_r + dir_i(dir);
+            auto out_c = door_c + dir_j(dir);
             auto out_cell = cells[out_r][out_c];
             if (out_cell.hasType(CellType::BLOCKED)) {
                 return {};
@@ -598,28 +644,28 @@ public:
             std::list<Sill> sills;
             if (room.north >= 3) {
                 for (int c = room.west; c <= room.east; c += 2) {
-                    if (auto sill = check_sill(room, room.north, c, "north")) {
+                    if (auto sill = check_sill(room.north, c, Direction::NORTH)) {
                         sills.push_back(sill.value());
                     }
                 }
             }
             if (room.south <= n_rows - 3) {
                 for (int c = room.west; c <= room.east; c += 2) {
-                    if (auto sill = check_sill(room, room.south, c, "south")) {
+                    if (auto sill = check_sill(room.south, c, Direction::SOUTH)) {
                         sills.push_back(sill.value());
                     }
                 }
             }
             if (room.west >= 3) {
                 for (int r = room.north; r <= room.south; r += 2) {
-                    if (auto sill = check_sill(room, r, room.west, "west")) {
+                    if (auto sill = check_sill(r, room.west, Direction::WEST)) {
                         sills.push_back(sill.value());
                     }
                 }
             }
             if (room.east <= n_cols - 3) {
                 for (int r = room.north; r <= room.south; r += 2) {
-                    if (auto sill = check_sill(room, r, room.east, "east")) {
+                    if (auto sill = check_sill(r, room.east, Direction::EAST)) {
                         sills.push_back(sill.value());
                     }
                 }
@@ -661,8 +707,8 @@ public:
             }
         }
 
-        void tunnel(int _i, int _j, const std::string &_last_dir = "") {
-            std::queue<std::tuple<int, int, std::string>> args;
+        void tunnel(int _i, int _j, const std::optional<Direction> &_last_dir = std::nullopt) {
+            std::queue<std::tuple<int, int, std::optional<Direction>>> args;
             args.push(std::make_tuple(_i, _j, _last_dir));
             while (!args.empty()) {
                 auto arg = vstd::pop(args);
@@ -671,33 +717,33 @@ public:
                 auto j = std::get<1>(arg);
                 for (const auto &dir: dirs)
                     if (open_tunnel(i, j, dir)) {
-                        auto next_i = i + DI[dir];
-                        auto next_j = j + DJ[dir];
+                        auto next_i = i + dir_i(dir);
+                        auto next_j = j + dir_j(dir);
 
                         args.push(std::make_tuple(next_i, next_j, dir));
                     }
             }
         }
 
-        std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
+        std::deque<Direction> tunnel_dirs(const std::optional<Direction> &last_dir) {
             auto p = static_cast<int>(options.corridor_layout);
-            std::deque<std::string> dirs;
-            for (auto [key, value]: DJ) {
-                dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
+            std::deque<Direction> dirs;
+            for (auto dir: DIRECTIONS) {
+                dirs.push_back(dir);//TODO: if(vstd::rand(1)push_back():else front
             }
             std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
 
-            if (!last_dir.empty() && p > 0 && vstd::rand(100) < p) {
-                dirs.push_front(last_dir);
+            if (last_dir.has_value() && p > 0 && vstd::rand(100) < p) {
+                dirs.push_front(last_dir.value());
             }
             return dirs;
         }
 
-        bool open_tunnel(int i, int j, const std::string &dir) {
+        bool open_tunnel(int i, int j, Direction dir) {
             auto this_r = (i * 2) + 1;
             auto this_c = (j * 2) + 1;
-            auto next_r = ((i + DI[dir]) * 2) + 1;
-            auto next_c = ((j + DJ[dir]) * 2) + 1;
+            auto next_r = ((i + dir_i(dir)) * 2) + 1;
+            auto next_c = ((j + dir_j(dir)) * 2) + 1;
             auto mid_r = (this_r + next_r) / 2;
             auto mid_c = (this_c + next_c) / 2;
 
@@ -782,13 +828,13 @@ public:
             }
         }
 
-        bool check_tunnel(int r, int c, std::map<std::string, std::vector<std::vector<int>>> check) {
-            for (auto p: check["corridor"]) {
+        bool check_tunnel(int r, int c, const TunnelOffsets &check) {
+            for (const auto &p: check.corridor) {
                 if (!cells[r + p[0]][c + p[1]].hasType(CellType::CORRIDOR)) {
                     return false;
                 }
             }
-            for (auto p: check["walled"]) {
+            for (const auto &p: check.walled) {
                 if (cells[r + p[0]][c + p[1]].isOpenspace()) {
                     return false;
                 }
@@ -807,15 +853,15 @@ public:
                     if (!cells[r][c].hasType(CellType::CORRIDOR) || cells[r][c].isStairs()) {
                         continue;
                     }
-                    for (auto [dir, dir_value]: STAIR_END) {
+                    for (auto dir: DIRECTIONS) {
+                        const auto &dir_value = STAIR_END[direction_index(dir)];
                         if (check_tunnel(r, c, dir_value)) {
                             Stairs end;
                             end.row = r;
                             end.col = c;
 
-                            auto n = dir_value["next"];
-                            end.next_row = end.row + n[0][0];
-                            end.next_col = end.col + n[0][1];
+                            end.next_row = end.row + dir_value.next[0][0];
+                            end.next_col = end.col + dir_value.next[0][1];
 
                             stairs.push_back(end);
                             break;
@@ -830,18 +876,20 @@ public:
             if (!(cells[r][c].isOpenspace())) {
                 return;
             }
-            for (auto [key, value]: CLOSE_END)
+            for (auto dir: DIRECTIONS) {
+                const auto &value = CLOSE_END[direction_index(dir)];
                 if (check_tunnel(r, c, value)) {
-                    for (auto p: value["close"]) {
+                    for (const auto &p: value.close) {
                         cells[r + p[0]][c + p[1]].clearTypes();
                     }
-                    for (auto p: value["open"]) {
+                    for (const auto &p: value.open) {
                         cells[r + p[0]][c + p[1]].addType(CellType::CORRIDOR);
                     }
-                    for (auto p: value["recurse"]) {
+                    for (const auto &p: value.recurse) {
                         collapse(r + p[0], c + p[1]);
                     }
                 }
+            }
         }
 
         void collapse_tunnels(int p) {
@@ -878,7 +926,7 @@ public:
             std::set<std::pair<int, int>> fixed;
 
             for (auto &[room_index, room_data]: rooms) {
-                std::set<std::string> dirs;
+                std::set<Direction> dirs;
                 for (auto [dir, _]: room_data.door) {
                     dirs.insert(dir);
                 }
@@ -898,7 +946,7 @@ public:
                             shiny.push_back(door);
                         } else {
                             if (auto out_id = door.out_id) {
-                                auto out_dir = OPPOSITE[dir];
+                                auto out_dir = opposite(dir);
                                 rooms[out_id].door.insert(std::make_pair(out_dir, door));
                             }
                             shiny.push_back(door);
@@ -967,71 +1015,64 @@ std::map<std::string, std::vector<std::vector<int>>> rdg<T>::DUNGEON_LAYOUT = {
         {"Cross", {{0, 1, 0}, {1, 1, 1}, {0, 1, 0}}}
 };
 template<typename T>
-std::map<std::string, int> rdg<T>::DI = {{"north", -1},
-                                         {"south", 1},
-                                         {"west",  0},
-                                         {"east",  0}};
+const std::array<typename rdg<T>::TunnelOffsets, 4> rdg<T>::STAIR_END = {{
+        {{{1, -1}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}},
+                {{0, 0}, {1, 0}, {2, 0}},
+                {{0, 0}},
+                {{1, 0}},
+                {},
+                {},
+                {}},
+        {{{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}},
+                {{0, 0}, {-1, 0}, {-2, 0}},
+                {{0, 0}},
+                {{-1, 0}},
+                {},
+                {},
+                {}},
+        {{{-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}},
+                {{0, 0}, {0, -1}, {0, -2}},
+                {{0, 0}},
+                {{0, -1}},
+                {},
+                {},
+                {}},
+        {{{-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}},
+                {{0, 0}, {0, 1}, {0, 2}},
+                {{0, 0}},
+                {{0, 1}},
+                {},
+                {},
+                {}}
+}};
 template<typename T>
-std::map<std::string, int> rdg<T>::DJ = {{"north", 0},
-                                         {"south", 0},
-                                         {"west",  -1},
-                                         {"east",  1}};
-
-template<typename T>
-std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> rdg<T>::STAIR_END = {
-        {"north", {
-                          {"walled", {{1,  -1}, {0,  -1}, {-1, -1}, {-1, 0},  {-1, 1},  {0, 1}, {1,  1}}},
-                          {"corridor", {{0, 0}, {1,  0},  {2,  0}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{1,  0}}}
-                  }},
-        {"south", {
-                          {"walled", {{-1, -1}, {0,  -1}, {1,  -1}, {1,  0},  {1,  1},  {0, 1}, {-1, 1}}},
-                          {"corridor", {{0, 0}, {-1, 0},  {-2, 0}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{-1, 0}}}
-                  }},
-        {"west",  {
-                          {"walled", {{-1, 1},  {-1, 0},  {-1, -1}, {0,  -1}, {1,  -1}, {1, 0}, {1,  1}}},
-                          {"corridor", {{0, 0}, {0,  1},  {0,  2}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{0,  1}}}
-                  }},
-        {"east",  {
-                          {"walled", {{-1, -1}, {-1, 0},  {-1, 1},  {0,  1},  {1,  1},  {1, 0}, {1,  -1}}},
-                          {"corridor", {{0, 0}, {0,  -1}, {0,  -2}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{0,  -1}}}
-                  }}
-};
-template<typename T>
-std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> rdg<T>::CLOSE_END = {
-        {"north", {
-                          {"walled", {{0,  -1}, {1,  -1}, {1,  0},  {1,  1},  {0, 1}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{-1, 0}}},
-                  }},
-        {"south", {
-                          {"walled", {{0,  -1}, {-1, -1}, {-1, 0},  {-1, 1},  {0, 1}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{1,  0}}},
-                  }},
-        {"west",  {
-                          {"walled", {{-1, 0},  {-1, 1},  {0,  1},  {1,  1},  {1, 0}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{0,  -1}}},
-                  }},
-        {"east",  {
-                          {"walled", {{-1, 0},  {-1, -1}, {0,  -1}, {1,  -1}, {1, 0}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{0,  1}}},
-                  }}
-};
-
-template<typename T>
-std::map<std::string, std::string> rdg<T>::OPPOSITE = {
-        {"north", "south"},
-        {"south", "north"},
-        {"west",  "east"},
-        {"east",  "west"}
-};
+const std::array<typename rdg<T>::TunnelOffsets, 4> rdg<T>::CLOSE_END = {{
+        {{{0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{-1, 0}}},
+        {{{0, -1}, {-1, -1}, {-1, 0}, {-1, 1}, {0, 1}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{1, 0}}},
+        {{{-1, 0}, {-1, -1}, {0, -1}, {1, -1}, {1, 0}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{0, 1}}},
+        {{{-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{0, -1}}}
+}};
