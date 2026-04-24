@@ -11,12 +11,15 @@
 #include <deque>
 #include <queue>
 #include <algorithm>
+#include <array>
+#include <iterator>
+#include <ranges>
 #include <vstd.h>
 
 template<typename T=void>
 class rdg {
 public:
-    enum CellType {
+    enum class CellType {
         BLOCKED,
         ROOM,
         CORRIDOR,
@@ -32,18 +35,63 @@ public:
         STAIR_UP
     };
 
-    enum CorridorLayout {
+    enum class CorridorLayout {
         BENT = 50,
         STRAIGHT = 100,
         LABYRINTH = 0
     };
+
+    enum class Direction {
+        NORTH = 0,
+        SOUTH = 1,
+        EAST = 2,
+        WEST = 3
+    };
+
 private:
+    struct TunnelOffsets {
+        std::vector<std::array<int, 2>> walled;
+        std::vector<std::array<int, 2>> corridor;
+        std::vector<std::array<int, 2>> stair;
+        std::vector<std::array<int, 2>> next;
+        std::vector<std::array<int, 2>> close;
+        std::vector<std::array<int, 2>> open;
+        std::vector<std::array<int, 2>> recurse;
+    };
+
+    static constexpr std::array<Direction, 4> DIRECTIONS = {
+            Direction::NORTH,
+            Direction::SOUTH,
+            Direction::EAST,
+            Direction::WEST
+    };
     static std::map<std::string, std::vector<std::vector<int>>> DUNGEON_LAYOUT;
-    static std::map<std::string, int> DI;
-    static std::map<std::string, int> DJ;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> STAIR_END;
-    static std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> CLOSE_END;
-    static std::map<std::string, std::string> OPPOSITE;
+    static constexpr std::array<int, 4> DI = {-1, 1, 0, 0};
+    static constexpr std::array<int, 4> DJ = {0, 0, 1, -1};
+    static const std::array<TunnelOffsets, 4> STAIR_END;
+    static const std::array<TunnelOffsets, 4> CLOSE_END;
+    static constexpr std::array<Direction, 4> OPPOSITE = {
+            Direction::SOUTH,
+            Direction::NORTH,
+            Direction::WEST,
+            Direction::EAST
+    };
+
+    static constexpr size_t direction_index(Direction dir) {
+        return static_cast<size_t>(dir);
+    }
+
+    static constexpr int dir_i(Direction dir) {
+        return DI[direction_index(dir)];
+    }
+
+    static constexpr int dir_j(Direction dir) {
+        return DJ[direction_index(dir)];
+    }
+
+    static constexpr Direction opposite(Direction dir) {
+        return OPPOSITE[direction_index(dir)];
+    }
 public:
     class Cell {
         std::set<CellType> types;
@@ -55,32 +103,32 @@ public:
             addType(type);
         }
 
-        bool isBlockedRoom() {
-            return hasType(BLOCKED)
-                   || hasType(ROOM);
+        [[nodiscard]] bool isBlockedRoom() const {
+            return hasType(CellType::BLOCKED)
+                   || hasType(CellType::ROOM);
         }
 
-        bool isBlockedCorridor() {
-            return hasType(BLOCKED)
-                   || hasType(PERIMETER)
-                   || hasType(CORRIDOR);
+        [[nodiscard]] bool isBlockedCorridor() const {
+            return hasType(CellType::BLOCKED)
+                   || hasType(CellType::PERIMETER)
+                   || hasType(CellType::CORRIDOR);
         }
 
-        bool isBlockedDoor() {
-            return hasType(BLOCKED)
+        [[nodiscard]] bool isBlockedDoor() const {
+            return hasType(CellType::BLOCKED)
                    || isDoorspace();
         }
 
-        bool hasLabel() {
+        [[nodiscard]] bool hasLabel() const {
             return !label.empty();
         }
 
-        std::string getLabel() {
+        [[nodiscard]] const std::string &getLabel() const {
             return label;
         }
 
-        bool isEspace() {
-            return hasType(ENTRANCE)
+        [[nodiscard]] bool isEspace() const {
+            return hasType(CellType::ENTRANCE)
                    || isDoorspace()
                    || hasLabel();
         }
@@ -93,34 +141,34 @@ public:
             types.erase(type);
         }
 
-        bool hasType(CellType type) const {
+        [[nodiscard]] bool hasType(CellType type) const {
             return vstd::ctn(types, type);
         }
 
-        bool isOpenspace() const {
-            return hasType(ROOM)
-                   || hasType(CORRIDOR);
+        [[nodiscard]] bool isOpenspace() const {
+            return hasType(CellType::ROOM)
+                   || hasType(CellType::CORRIDOR);
         }
 
-        bool isDoorspace() {
-            return hasType(ARCH)
-                   || hasType(DOOR)
-                   || hasType(LOCKED)
-                   || hasType(TRAPPED)
-                   || hasType(SECRET)
-                   || hasType(PORTC);
+        [[nodiscard]] bool isDoorspace() const {
+            return hasType(CellType::ARCH)
+                   || hasType(CellType::DOOR)
+                   || hasType(CellType::LOCKED)
+                   || hasType(CellType::TRAPPED)
+                   || hasType(CellType::SECRET)
+                   || hasType(CellType::PORTC);
         }
 
-        bool isStairs() {
-            return hasType(STAIR_UP)
-                   || hasType(STAIR_DN);
+        [[nodiscard]] bool isStairs() const {
+            return hasType(CellType::STAIR_UP)
+                   || hasType(CellType::STAIR_DN);
         }
 
         void setRoomId(int room_id) {
             this->room_id = room_id;
         }
 
-        int getRoomId() {
+        [[nodiscard]] int getRoomId() const {
             return room_id;
         }
 
@@ -138,13 +186,13 @@ public:
 
         void clearEspace() {
             clearLabel();
-            removeType(ENTRANCE);
-            removeType(ARCH);
-            removeType(DOOR);
-            removeType(LOCKED);
-            removeType(TRAPPED);
-            removeType(SECRET);
-            removeType(PORTC);
+            removeType(CellType::ENTRANCE);
+            removeType(CellType::ARCH);
+            removeType(CellType::DOOR);
+            removeType(CellType::LOCKED);
+            removeType(CellType::TRAPPED);
+            removeType(CellType::SECRET);
+            removeType(CellType::PORTC);
         }
     };
 
@@ -162,7 +210,7 @@ public:
         int width;
         int area;
 
-        std::multimap<std::string, Door> door;
+        std::multimap<Direction, Door> door;
     };
 
     struct Stairs {
@@ -180,7 +228,7 @@ public:
         int room_min = 3; //minimum rooms size
         int room_max = 9; //maximum rooms size
         std::string room_layout = "Scattered";  //Packed, Scattered
-        CorridorLayout corridor_layout = LABYRINTH;
+        CorridorLayout corridor_layout = CorridorLayout::LABYRINTH;
         int remove_deadends = 100;//percentage
         int add_stairs = 2; //number of stairs
         std::string map_style = "Standard";
@@ -190,7 +238,7 @@ public:
     struct Sill {
         const int sill_r;
         const int sill_c;
-        const std::string dir;
+        const Direction dir;
         const int door_r;
         const int door_c;
         const int out_id;
@@ -208,19 +256,19 @@ public:
         friend Dungeon rdg<T>::create_dungeon(Options options);
 
     public:
-        const auto &getCells() {
+        [[nodiscard]] const auto &getCells() const {
             return cells;
         }
 
-        const auto &getStairs() {
+        [[nodiscard]] const auto &getStairs() const {
             return stairs;
         }
 
-        const auto &getRooms() {
+        [[nodiscard]] const auto &getRooms() const {
             return rooms;
         }
 
-        const auto &getDoors() {
+        [[nodiscard]] const auto &getDoors() const {
             return doors;
         }
 
@@ -241,6 +289,16 @@ public:
         const int room_radix;
         int n_rooms = 0;
         int last_room_id = 0;
+
+        template<typename E>
+        static E pop_random(std::list<E> &items) {
+            const auto offset = static_cast<typename std::list<E>::difference_type>(
+                    vstd::rand(static_cast<int>(items.size())));
+            auto it = std::next(items.begin(), offset);
+            E value = *it;
+            items.erase(it);
+            return value;
+        }
 
         explicit Dungeon(Options
                          _options) :
@@ -278,7 +336,7 @@ public:
             for (int r = 0; r < n_rows; r++) {
                 for (int c = 0; c < n_cols; c++) {
                     if (!mask[r * r_x][c * c_x]) {
-                        cells[r][c].setType(BLOCKED);
+                        cells[r][c].setType(CellType::BLOCKED);
                     }
                 }
             }
@@ -292,7 +350,7 @@ public:
                 for (int c = 0; c < n_cols; c++) {
                     double d = sqrt((r - center_r) * (r - center_r) + (c - center_c) * (c - center_c));
                     if (d > center_c) {
-                        cells[r][c].setType(BLOCKED);
+                        cells[r][c].setType(CellType::BLOCKED);
                     }
                 }
             }
@@ -312,7 +370,7 @@ public:
                 for (int j = 0; j < n_j; j++) {
                     auto c = (j * 2) + 1;
 
-                    if (cells[r][c].hasType(ROOM)) {
+                    if (cells[r][c].hasType(CellType::ROOM)) {
                         continue;
                     }
                     if ((i == 0 || j == 0) && vstd::rand(0, 1)) {
@@ -360,39 +418,38 @@ public:
 
             for (int r = r1; r <= r2; r++) {
                 for (int c = c1; c <= c2; c++) {
-                    if (cells[r][c].hasType(ENTRANCE)) {
+                    if (cells[r][c].hasType(CellType::ENTRANCE)) {
                         cells[r][c].clearEspace();
-                    } else if (cells[r][c].hasType(PERIMETER)) {
-                        cells[r][c].removeType(PERIMETER);
+                    } else if (cells[r][c].hasType(CellType::PERIMETER)) {
+                        cells[r][c].removeType(CellType::PERIMETER);
                     }
-                    cells[r][c].addType(ROOM);
+                    cells[r][c].addType(CellType::ROOM);
                     cells[r][c].setRoomId(room_id);
                 }
             }
 
             int h = (r2 - r1) + 1;
             int w = (c2 - c1) + 1;
-            Room _room = {room_id, r1, c1, r1, r2, c1, c2, h, w, h * w};
-            rooms[room_id] = _room;
+            rooms[room_id] = {room_id, r1, c1, r1, r2, c1, c2, h, w, h * w, {}};
 
             for (int r = r1 - 1; r <= r2 + 1; r++) {
-                if (!(cells[r][c1 - 1].hasType(ROOM)
-                      || cells[r][c1 - 1].hasType(ENTRANCE))) {
-                    cells[r][c1 - 1].addType(PERIMETER);
+                if (!(cells[r][c1 - 1].hasType(CellType::ROOM)
+                      || cells[r][c1 - 1].hasType(CellType::ENTRANCE))) {
+                    cells[r][c1 - 1].addType(CellType::PERIMETER);
                 }
-                if (!(cells[r][c2 + 1].hasType(ROOM)
-                      || cells[r][c2 + 1].hasType(ENTRANCE))) {
-                    cells[r][c2 + 1].addType(PERIMETER);
+                if (!(cells[r][c2 + 1].hasType(CellType::ROOM)
+                      || cells[r][c2 + 1].hasType(CellType::ENTRANCE))) {
+                    cells[r][c2 + 1].addType(CellType::PERIMETER);
                 }
             }
             for (int c = c1 - 1; c <= c2 + 1; c++) {
-                if (!(cells[r1 - 1][c].hasType(ROOM)
-                      || cells[r1 - 1][c].hasType(ENTRANCE))) {
-                    cells[r1 - 1][c].addType(PERIMETER);
+                if (!(cells[r1 - 1][c].hasType(CellType::ROOM)
+                      || cells[r1 - 1][c].hasType(CellType::ENTRANCE))) {
+                    cells[r1 - 1][c].addType(CellType::PERIMETER);
                 }
-                if (!(cells[r2 + 1][c].hasType(ROOM)
-                      || cells[r2 + 1][c].hasType(ENTRANCE))) {
-                    cells[r2 + 1][c].addType(PERIMETER);
+                if (!(cells[r2 + 1][c].hasType(CellType::ROOM)
+                      || cells[r2 + 1][c].hasType(CellType::ENTRANCE))) {
+                    cells[r2 + 1][c].addType(CellType::PERIMETER);
                 }
             }
         }
@@ -431,10 +488,10 @@ public:
             std::map<int, int> hit;
             for (int r = r1; r <= r2; r++) {
                 for (int c = c1; c <= c2; c++) {
-                    if (cells[r][c].hasType(BLOCKED)) {
+                    if (cells[r][c].hasType(CellType::BLOCKED)) {
                         return std::make_tuple(hit, true);
                     }
-                    if (cells[r][c].hasType(ROOM)) {
+                    if (cells[r][c].hasType(CellType::ROOM)) {
                         auto id = cells[r][c].getRoomId();
                         if (!vstd::ctn(hit, id)) {
                             hit[id] = 0;
@@ -466,14 +523,10 @@ public:
             auto n_opens = alloc_opens(room);
 
             for (int i = 0; i < n_opens && !list.empty(); i++) {
-                std::list<Sill> sills;
-                auto it = list.begin();
-                std::advance(it, vstd::rand(list.size() - 1));
-                sills.splice(sills.begin(), list, it);
-                auto sill = sills.front();
+                const auto sill = pop_random(list);
                 auto door_r = sill.door_r;
                 auto door_c = sill.door_c;
-                auto door_cell = cells[door_r][door_c];
+                const auto &door_cell = cells[door_r][door_c];
 
                 if (door_cell.isDoorspace()) {
                     n_opens--;
@@ -496,44 +549,44 @@ public:
                 auto open_dir = sill.dir;
 
                 for (auto x = 0; x < 3; x++) {
-                    auto r = open_r + (DI[open_dir] * x);
-                    auto c = open_c + (DJ[open_dir] * x);
+                    auto r = open_r + (dir_i(open_dir) * x);
+                    auto c = open_c + (dir_j(open_dir) * x);
 
-                    cells[r][c].removeType(PERIMETER);
-                    cells[r][c].addType(ENTRANCE);
+                    cells[r][c].removeType(CellType::PERIMETER);
+                    cells[r][c].addType(CellType::ENTRANCE);
                 }
-                int door_type = generate_door_type();
+                CellType door_type = generate_door_type();
                 Door door;
                 door.row = door_r;
                 door.col = door_c;
 
-                if (door_type == ARCH) {
-                    cells[door_r][door_c].addType(ARCH);
+                if (door_type == CellType::ARCH) {
+                    cells[door_r][door_c].addType(CellType::ARCH);
                     cells[door_r][door_c].setLabel("a");
                     door.key = "arch";
                     door.type = "Archway";
-                } else if (door_type == DOOR) {
-                    cells[door_r][door_c].addType(DOOR);
+                } else if (door_type == CellType::DOOR) {
+                    cells[door_r][door_c].addType(CellType::DOOR);
                     cells[door_r][door_c].setLabel("o");
                     door.key = "open";
                     door.type = "Unlocked Door";
-                } else if (door_type == LOCKED) {
-                    cells[door_r][door_c].addType(LOCKED);
+                } else if (door_type == CellType::LOCKED) {
+                    cells[door_r][door_c].addType(CellType::LOCKED);
                     cells[door_r][door_c].setLabel("x");
                     door.key = "lock";
                     door.type = "Locked Door";
-                } else if (door_type == TRAPPED) {
-                    cells[door_r][door_c].addType(TRAPPED);
+                } else if (door_type == CellType::TRAPPED) {
+                    cells[door_r][door_c].addType(CellType::TRAPPED);
                     cells[door_r][door_c].setLabel("t");
                     door.key = "trap";
                     door.type = "Trapped Door";
-                } else if (door_type == SECRET) {
-                    cells[door_r][door_c].addType(SECRET);
+                } else if (door_type == CellType::SECRET) {
+                    cells[door_r][door_c].addType(CellType::SECRET);
                     cells[door_r][door_c].setLabel("s");
                     door.key = "secret";
                     door.type = "Secret Door";
-                } else if (door_type == PORTC) {
-                    cells[door_r][door_c].addType(PORTC);
+                } else if (door_type == CellType::PORTC) {
+                    cells[door_r][door_c].addType(CellType::PORTC);
                     cells[door_r][door_c].setLabel("p");
                     door.key = "portc";
                     door.type = "Portcullis";
@@ -546,21 +599,21 @@ public:
             }
         }
 
-        int generate_door_type() {
+        CellType generate_door_type() {
             auto i = int(vstd::rand(110));
 
             if (i < 15) {
-                return ARCH;
+                return CellType::ARCH;
             } else if (i < 60) {
-                return DOOR;
+                return CellType::DOOR;
             } else if (i < 75) {
-                return LOCKED;
+                return CellType::LOCKED;
             } else if (i < 90) {
-                return TRAPPED;
+                return CellType::TRAPPED;
             } else if (i < 100) {
-                return SECRET;
+                return CellType::SECRET;
             } else {
-                return PORTC;
+                return CellType::PORTC;
             }
         }
 
@@ -571,24 +624,24 @@ public:
             return (int) flumph + vstd::rand(flumph);
         }
 
-        std::optional<Sill> check_sill(const Room &room, int sill_r, int sill_c, const std::string &dir) {
-            auto door_r = sill_r + DI[dir];
-            auto door_c = sill_c + DJ[dir];
-            auto door_cell = cells[door_r][door_c];
-            if (!(door_cell.hasType(PERIMETER))) {
+        std::optional<Sill> check_sill(int sill_r, int sill_c, Direction dir) {
+            auto door_r = sill_r + dir_i(dir);
+            auto door_c = sill_c + dir_j(dir);
+            const auto &door_cell = cells[door_r][door_c];
+            if (!(door_cell.hasType(CellType::PERIMETER))) {
                 return {};
             }
             if (door_cell.isBlockedDoor()) {
                 return {};
             }
-            auto out_r = door_r + DI[dir];
-            auto out_c = door_c + DJ[dir];
-            auto out_cell = cells[out_r][out_c];
-            if (out_cell.hasType(BLOCKED)) {
+            auto out_r = door_r + dir_i(dir);
+            auto out_c = door_c + dir_j(dir);
+            const auto &out_cell = cells[out_r][out_c];
+            if (out_cell.hasType(CellType::BLOCKED)) {
                 return {};
             }
             auto out_id = -1;
-            if (out_cell.hasType(ROOM)) {
+            if (out_cell.hasType(CellType::ROOM)) {
                 out_id = out_cell.getRoomId();
             }
             return std::make_optional<Sill>({sill_r, sill_c, dir, door_r, door_c, out_id});
@@ -598,28 +651,28 @@ public:
             std::list<Sill> sills;
             if (room.north >= 3) {
                 for (int c = room.west; c <= room.east; c += 2) {
-                    if (auto sill = check_sill(room, room.north, c, "north")) {
+                    if (auto sill = check_sill(room.north, c, Direction::NORTH)) {
                         sills.push_back(sill.value());
                     }
                 }
             }
             if (room.south <= n_rows - 3) {
                 for (int c = room.west; c <= room.east; c += 2) {
-                    if (auto sill = check_sill(room, room.south, c, "south")) {
+                    if (auto sill = check_sill(room.south, c, Direction::SOUTH)) {
                         sills.push_back(sill.value());
                     }
                 }
             }
             if (room.west >= 3) {
                 for (int r = room.north; r <= room.south; r += 2) {
-                    if (auto sill = check_sill(room, r, room.west, "west")) {
+                    if (auto sill = check_sill(r, room.west, Direction::WEST)) {
                         sills.push_back(sill.value());
                     }
                 }
             }
             if (room.east <= n_cols - 3) {
                 for (int r = room.north; r <= room.south; r += 2) {
-                    if (auto sill = check_sill(room, r, room.east, "east")) {
+                    if (auto sill = check_sill(r, room.east, Direction::EAST)) {
                         sills.push_back(sill.value());
                     }
                 }
@@ -636,11 +689,11 @@ public:
 
         void label_rooms() {
             for (auto id = 1; id <= n_rooms; id++) {
-                auto _room = rooms[id];
-                auto label = vstd::str(_room.id);
+                const auto &room = rooms[id];
+                auto label = vstd::str(room.id);
                 auto len = label.length();
-                auto label_r = int((_room.north + _room.south) / 2);
-                auto label_c = int((_room.west + _room.east - len) / 2) + 1;
+                auto label_r = int((room.north + room.south) / 2);
+                auto label_c = int((room.west + room.east - len) / 2) + 1;
 
                 for (decltype(len) c = 0; c < len; c++) {
                     auto _char = label.substr(c, 1);
@@ -655,14 +708,14 @@ public:
                 for (auto j = 1; j < n_j; j++) {
                     auto c = (j * 2) + 1;
 
-                    if (cells[r][c].hasType(CORRIDOR))continue;
+                    if (cells[r][c].hasType(CellType::CORRIDOR))continue;
                     tunnel(i, j);
                 }
             }
         }
 
-        void tunnel(int _i, int _j, const std::string &_last_dir = "") {
-            std::queue<std::tuple<int, int, std::string>> args;
+        void tunnel(int _i, int _j, const std::optional<Direction> &_last_dir = std::nullopt) {
+            std::queue<std::tuple<int, int, std::optional<Direction>>> args;
             args.push(std::make_tuple(_i, _j, _last_dir));
             while (!args.empty()) {
                 auto arg = vstd::pop(args);
@@ -671,33 +724,35 @@ public:
                 auto j = std::get<1>(arg);
                 for (const auto &dir: dirs)
                     if (open_tunnel(i, j, dir)) {
-                        auto next_i = i + DI[dir];
-                        auto next_j = j + DJ[dir];
+                        auto next_i = i + dir_i(dir);
+                        auto next_j = j + dir_j(dir);
 
                         args.push(std::make_tuple(next_i, next_j, dir));
                     }
             }
         }
 
-        std::deque<std::string> tunnel_dirs(const std::string &last_dir) {
-            auto p = options.corridor_layout;
-            std::deque<std::string> dirs;
-            for (auto [key, value]: DJ) {
-                dirs.push_back(key);//TODO: if(vstd::rand(1)push_back():else front
-            }
-            std::shuffle(dirs.begin(), dirs.end(), vstd::rng());
+        std::deque<Direction> tunnel_dirs(const std::optional<Direction> &last_dir) {
+            auto p = static_cast<int>(options.corridor_layout);
+            std::vector<Direction> dirs;
+            dirs.reserve(DIRECTIONS.size());
+            std::ranges::copy(DIRECTIONS, std::back_inserter(dirs));
+            std::ranges::shuffle(dirs, vstd::rng());
 
-            if (!last_dir.empty() && p && vstd::rand(100) < p) {
-                dirs.push_front(last_dir);
+            if (last_dir.has_value() && p > 0 && vstd::rand(100) < p) {
+                std::ranges::stable_partition(dirs, [&](Direction dir) {
+                    return dir == last_dir.value();
+                });
             }
-            return dirs;
+
+            return {dirs.begin(), dirs.end()};
         }
 
-        bool open_tunnel(int i, int j, const std::string &dir) {
+        bool open_tunnel(int i, int j, Direction dir) {
             auto this_r = (i * 2) + 1;
             auto this_c = (j * 2) + 1;
-            auto next_r = ((i + DI[dir]) * 2) + 1;
-            auto next_c = ((j + DJ[dir]) * 2) + 1;
+            auto next_r = ((i + dir_i(dir)) * 2) + 1;
+            auto next_c = ((j + dir_j(dir)) * 2) + 1;
             auto mid_r = (this_r + next_r) / 2;
             auto mid_c = (this_c + next_c) / 2;
 
@@ -740,8 +795,8 @@ public:
 
             for (auto r = r1; r <= r2; r++) {
                 for (auto c = c1; c <= c2; c++) {
-                    cells[r][c].removeType(ENTRANCE);
-                    cells[r][c].addType(CORRIDOR);
+                    cells[r][c].removeType(CellType::ENTRANCE);
+                    cells[r][c].addType(CellType::CORRIDOR);
                 }
             }
             return true;
@@ -759,10 +814,7 @@ public:
             }
 
             for (int i = 0; i < n; i++) {
-                auto it = list.begin();
-                std::advance(it, vstd::rand(list.size()));
-                Stairs stairs = *it;
-                list.erase(it);
+                auto stairs = pop_random(list);
 
                 auto r = stairs.row;
                 auto c = stairs.col;
@@ -770,11 +822,11 @@ public:
 
 
                 if (type == 0) {
-                    cells[r][c].addType(STAIR_DN);
+                    cells[r][c].addType(CellType::STAIR_DN);
                     cells[r][c].setLabel("d");
                     stairs.key = "down";
                 } else {
-                    cells[r][c].addType(STAIR_UP);
+                    cells[r][c].addType(CellType::STAIR_UP);
                     cells[r][c].setLabel("u");
                     stairs.key = "up";
                 }
@@ -782,13 +834,13 @@ public:
             }
         }
 
-        bool check_tunnel(int r, int c, std::map<std::string, std::vector<std::vector<int>>> check) {
-            for (auto p: check["corridor"]) {
-                if (!cells[r + p[0]][c + p[1]].hasType(CORRIDOR)) {
+        bool check_tunnel(int r, int c, const TunnelOffsets &check) {
+            for (const auto &p: check.corridor) {
+                if (!cells[r + p[0]][c + p[1]].hasType(CellType::CORRIDOR)) {
                     return false;
                 }
             }
-            for (auto p: check["walled"]) {
+            for (const auto &p: check.walled) {
                 if (cells[r + p[0]][c + p[1]].isOpenspace()) {
                     return false;
                 }
@@ -804,18 +856,18 @@ public:
                 for (auto j = 0; j < n_j; j++) {
                     auto c = (j * 2) + 1;
 
-                    if (!cells[r][c].hasType(CORRIDOR) || cells[r][c].isStairs()) {
+                    if (!cells[r][c].hasType(CellType::CORRIDOR) || cells[r][c].isStairs()) {
                         continue;
                     }
-                    for (auto [dir, dir_value]: STAIR_END) {
+                    for (auto dir: DIRECTIONS) {
+                        const auto &dir_value = STAIR_END[direction_index(dir)];
                         if (check_tunnel(r, c, dir_value)) {
                             Stairs end;
                             end.row = r;
                             end.col = c;
 
-                            auto n = dir_value["next"];
-                            end.next_row = end.row + n[0][0];
-                            end.next_col = end.col + n[0][1];
+                            end.next_row = end.row + dir_value.next[0][0];
+                            end.next_col = end.col + dir_value.next[0][1];
 
                             stairs.push_back(end);
                             break;
@@ -830,18 +882,20 @@ public:
             if (!(cells[r][c].isOpenspace())) {
                 return;
             }
-            for (auto [key, value]: CLOSE_END)
+            for (auto dir: DIRECTIONS) {
+                const auto &value = CLOSE_END[direction_index(dir)];
                 if (check_tunnel(r, c, value)) {
-                    for (auto p: value["close"]) {
+                    for (const auto &p: value.close) {
                         cells[r + p[0]][c + p[1]].clearTypes();
                     }
-                    for (auto p: value["open"]) {
-                        cells[r + p[0]][c + p[1]].addType(CORRIDOR);
+                    for (const auto &p: value.open) {
+                        cells[r + p[0]][c + p[1]].addType(CellType::CORRIDOR);
                     }
-                    for (auto p: value["recurse"]) {
+                    for (const auto &p: value.recurse) {
                         collapse(r + p[0], c + p[1]);
                     }
                 }
+            }
         }
 
         void collapse_tunnels(int p) {
@@ -877,19 +931,20 @@ public:
         void fix_doors() {
             std::set<std::pair<int, int>> fixed;
 
-            for (auto [room_index, room_data]: rooms) {
-                std::set<std::string> dirs;
-                for (auto [dir, _]: room_data.door) {
-                    dirs.insert(dir);
+            for (auto &room_entry: rooms) {
+                auto &room_data = room_entry.second;
+                std::set<Direction> dirs;
+                for (const auto &door_entry: room_data.door) {
+                    dirs.insert(door_entry.first);
                 }
                 for (const auto &dir: dirs) {
                     std::list<Door> shiny;
                     auto range = room_data.door.equal_range(dir);
                     for (auto it = range.first; it != range.second; it++) {
-                        auto door = it->second;
+                        const auto &door = it->second;
                         auto door_r = door.row;
                         auto door_c = door.col;
-                        auto door_cell = cells[door_r][door_c];
+                        const auto &door_cell = cells[door_r][door_c];
                         if (!(door_cell.isOpenspace())) {
                             continue;
                         }
@@ -898,7 +953,7 @@ public:
                             shiny.push_back(door);
                         } else {
                             if (auto out_id = door.out_id) {
-                                auto out_dir = OPPOSITE[dir];
+                                const auto out_dir = opposite(dir);
                                 rooms[out_id].door.insert(std::make_pair(out_dir, door));
                             }
                             shiny.push_back(door);
@@ -921,7 +976,7 @@ public:
         void empty_blocks() {
             for (auto r = 0; r <= n_rows; r++) {
                 for (auto c = 0; c <= n_cols; c++) {
-                    if (cells[r][c].hasType(BLOCKED)) {
+                    if (cells[r][c].hasType(CellType::BLOCKED)) {
                         cells[r][c].clearTypes();
                     }
                 }
@@ -967,71 +1022,64 @@ std::map<std::string, std::vector<std::vector<int>>> rdg<T>::DUNGEON_LAYOUT = {
         {"Cross", {{0, 1, 0}, {1, 1, 1}, {0, 1, 0}}}
 };
 template<typename T>
-std::map<std::string, int> rdg<T>::DI = {{"north", -1},
-                                         {"south", 1},
-                                         {"west",  0},
-                                         {"east",  0}};
+const std::array<typename rdg<T>::TunnelOffsets, 4> rdg<T>::STAIR_END = {{
+        {{{1, -1}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}},
+                {{0, 0}, {1, 0}, {2, 0}},
+                {{0, 0}},
+                {{1, 0}},
+                {},
+                {},
+                {}},
+        {{{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}},
+                {{0, 0}, {-1, 0}, {-2, 0}},
+                {{0, 0}},
+                {{-1, 0}},
+                {},
+                {},
+                {}},
+        {{{-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}},
+                {{0, 0}, {0, -1}, {0, -2}},
+                {{0, 0}},
+                {{0, -1}},
+                {},
+                {},
+                {}},
+        {{{-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}},
+                {{0, 0}, {0, 1}, {0, 2}},
+                {{0, 0}},
+                {{0, 1}},
+                {},
+                {},
+                {}}
+}};
 template<typename T>
-std::map<std::string, int> rdg<T>::DJ = {{"north", 0},
-                                         {"south", 0},
-                                         {"west",  -1},
-                                         {"east",  1}};
-
-template<typename T>
-std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> rdg<T>::STAIR_END = {
-        {"north", {
-                          {"walled", {{1,  -1}, {0,  -1}, {-1, -1}, {-1, 0},  {-1, 1},  {0, 1}, {1,  1}}},
-                          {"corridor", {{0, 0}, {1,  0},  {2,  0}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{1,  0}}}
-                  }},
-        {"south", {
-                          {"walled", {{-1, -1}, {0,  -1}, {1,  -1}, {1,  0},  {1,  1},  {0, 1}, {-1, 1}}},
-                          {"corridor", {{0, 0}, {-1, 0},  {-2, 0}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{-1, 0}}}
-                  }},
-        {"west",  {
-                          {"walled", {{-1, 1},  {-1, 0},  {-1, -1}, {0,  -1}, {1,  -1}, {1, 0}, {1,  1}}},
-                          {"corridor", {{0, 0}, {0,  1},  {0,  2}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{0,  1}}}
-                  }},
-        {"east",  {
-                          {"walled", {{-1, -1}, {-1, 0},  {-1, 1},  {0,  1},  {1,  1},  {1, 0}, {1,  -1}}},
-                          {"corridor", {{0, 0}, {0,  -1}, {0,  -2}}},
-                          {"stair", {{0, 0}}},
-                          {"next", {{0,  -1}}}
-                  }}
-};
-template<typename T>
-std::map<std::string, std::map<std::string, std::vector<std::vector<int>>>> rdg<T>::CLOSE_END = {
-        {"north", {
-                          {"walled", {{0,  -1}, {1,  -1}, {1,  0},  {1,  1},  {0, 1}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{-1, 0}}},
-                  }},
-        {"south", {
-                          {"walled", {{0,  -1}, {-1, -1}, {-1, 0},  {-1, 1},  {0, 1}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{1,  0}}},
-                  }},
-        {"west",  {
-                          {"walled", {{-1, 0},  {-1, 1},  {0,  1},  {1,  1},  {1, 0}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{0,  -1}}},
-                  }},
-        {"east",  {
-                          {"walled", {{-1, 0},  {-1, -1}, {0,  -1}, {1,  -1}, {1, 0}}},
-                          {"close", {{0, 0}}},
-                          {"recurse", {{0,  1}}},
-                  }}
-};
-
-template<typename T>
-std::map<std::string, std::string> rdg<T>::OPPOSITE = {
-        {"north", "south"},
-        {"south", "north"},
-        {"west",  "east"},
-        {"east",  "west"}
-};
+const std::array<typename rdg<T>::TunnelOffsets, 4> rdg<T>::CLOSE_END = {{
+        {{{0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{-1, 0}}},
+        {{{0, -1}, {-1, -1}, {-1, 0}, {-1, 1}, {0, 1}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{1, 0}}},
+        {{{-1, 0}, {-1, -1}, {0, -1}, {1, -1}, {1, 0}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{0, 1}}},
+        {{{-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}},
+                {},
+                {},
+                {},
+                {{0, 0}},
+                {},
+                {{0, -1}}}
+}};
