@@ -55,31 +55,31 @@ public:
             addType(type);
         }
 
-        bool isBlockedRoom() {
+        [[nodiscard]] bool isBlockedRoom() const {
             return hasType(CellType::BLOCKED)
                    || hasType(CellType::ROOM);
         }
 
-        bool isBlockedCorridor() {
+        [[nodiscard]] bool isBlockedCorridor() const {
             return hasType(CellType::BLOCKED)
                    || hasType(CellType::PERIMETER)
                    || hasType(CellType::CORRIDOR);
         }
 
-        bool isBlockedDoor() {
+        [[nodiscard]] bool isBlockedDoor() const {
             return hasType(CellType::BLOCKED)
                    || isDoorspace();
         }
 
-        bool hasLabel() {
+        [[nodiscard]] bool hasLabel() const {
             return !label.empty();
         }
 
-        std::string getLabel() {
+        [[nodiscard]] const std::string &getLabel() const {
             return label;
         }
 
-        bool isEspace() {
+        [[nodiscard]] bool isEspace() const {
             return hasType(CellType::ENTRANCE)
                    || isDoorspace()
                    || hasLabel();
@@ -93,16 +93,16 @@ public:
             types.erase(type);
         }
 
-        bool hasType(CellType type) const {
+        [[nodiscard]] bool hasType(CellType type) const {
             return vstd::ctn(types, type);
         }
 
-        bool isOpenspace() const {
+        [[nodiscard]] bool isOpenspace() const {
             return hasType(CellType::ROOM)
                    || hasType(CellType::CORRIDOR);
         }
 
-        bool isDoorspace() {
+        [[nodiscard]] bool isDoorspace() const {
             return hasType(CellType::ARCH)
                    || hasType(CellType::DOOR)
                    || hasType(CellType::LOCKED)
@@ -111,7 +111,7 @@ public:
                    || hasType(CellType::PORTC);
         }
 
-        bool isStairs() {
+        [[nodiscard]] bool isStairs() const {
             return hasType(CellType::STAIR_UP)
                    || hasType(CellType::STAIR_DN);
         }
@@ -120,7 +120,7 @@ public:
             this->room_id = room_id;
         }
 
-        int getRoomId() {
+        [[nodiscard]] int getRoomId() const {
             return room_id;
         }
 
@@ -208,19 +208,19 @@ public:
         friend Dungeon rdg<T>::create_dungeon(Options options);
 
     public:
-        const auto &getCells() {
+        [[nodiscard]] const auto &getCells() const {
             return cells;
         }
 
-        const auto &getStairs() {
+        [[nodiscard]] const auto &getStairs() const {
             return stairs;
         }
 
-        const auto &getRooms() {
+        [[nodiscard]] const auto &getRooms() const {
             return rooms;
         }
 
-        const auto &getDoors() {
+        [[nodiscard]] const auto &getDoors() const {
             return doors;
         }
 
