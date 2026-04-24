@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <map>
 #include <optional>
-#include <queue>
 #include <random>
 #include <set>
 #include <span>
@@ -65,6 +64,22 @@ enum class RoomLayout : std::uint8_t {
 
 enum class MapStyle : std::uint8_t {
     Standard
+};
+
+enum class DoorKind : std::uint8_t {
+    None,
+    Arch,
+    Open,
+    Locked,
+    Trapped,
+    Secret,
+    Portcullis
+};
+
+enum class StairKind : std::uint8_t {
+    None,
+    Down,
+    Up
 };
 
 [[nodiscard]] inline std::optional<DungeonLayout> dungeon_layout_from_string(std::string_view value) {
@@ -132,10 +147,62 @@ enum class MapStyle : std::uint8_t {
     return "Standard";
 }
 
+[[nodiscard]] inline std::string_view key(DoorKind kind) {
+    switch (kind) {
+        case DoorKind::Arch:
+            return "arch";
+        case DoorKind::Open:
+            return "open";
+        case DoorKind::Locked:
+            return "lock";
+        case DoorKind::Trapped:
+            return "trap";
+        case DoorKind::Secret:
+            return "secret";
+        case DoorKind::Portcullis:
+            return "portc";
+        case DoorKind::None:
+            return "";
+    }
+    return "";
+}
+
+[[nodiscard]] inline std::string_view to_string(DoorKind kind) {
+    switch (kind) {
+        case DoorKind::Arch:
+            return "Archway";
+        case DoorKind::Open:
+            return "Unlocked Door";
+        case DoorKind::Locked:
+            return "Locked Door";
+        case DoorKind::Trapped:
+            return "Trapped Door";
+        case DoorKind::Secret:
+            return "Secret Door";
+        case DoorKind::Portcullis:
+            return "Portcullis";
+        case DoorKind::None:
+            return "";
+    }
+    return "";
+}
+
+[[nodiscard]] inline std::string_view key(StairKind kind) {
+    switch (kind) {
+        case StairKind::Down:
+            return "down";
+        case StairKind::Up:
+            return "up";
+        case StairKind::None:
+            return "";
+    }
+    return "";
+}
+
 class Cell {
     std::uint16_t types = 0;
     int room_id = 0;
-    std::string label;
+    char label = '\0';
 
     [[nodiscard]] static constexpr std::uint16_t type_bit(CellType type) {
         return static_cast<std::uint16_t>(1u << static_cast<unsigned>(type));
@@ -164,11 +231,14 @@ public:
     }
 
     [[nodiscard]] bool hasLabel() const {
-        return !label.empty();
+        return label != '\0';
     }
 
-    [[nodiscard]] const std::string &getLabel() const {
-        return label;
+    [[nodiscard]] std::string_view getLabel() const {
+        if (!hasLabel()) {
+            return {};
+        }
+        return std::string_view(&label, 1);
     }
 
     [[nodiscard]] bool isEspace() const {
@@ -216,8 +286,12 @@ public:
         return room_id;
     }
 
-    void setLabel(std::string label) {
-        this->label = std::move(label);
+    void setLabel(char label) {
+        this->label = label;
+    }
+
+    void setLabel(std::string_view label) {
+        this->label = label.empty() ? '\0' : label.front();
     }
 
     void clearTypes() {
@@ -225,7 +299,7 @@ public:
     }
 
     void clearLabel() {
-        label.clear();
+        label = '\0';
     }
 
     void clearEspace() {
@@ -262,7 +336,11 @@ struct Stairs {
     int col = 0;
     int next_row = 0;
     int next_col = 0;
-    std::string key;
+    StairKind kind = StairKind::None;
+
+    [[nodiscard]] std::string_view getKey() const {
+        return key(kind);
+    }
 };
 
 struct Options {
@@ -311,9 +389,16 @@ struct ValidationError {
 struct Door {
     int row = 0;
     int col = 0;
-    std::string key;
-    std::string type;
+    DoorKind kind = DoorKind::None;
     int out_id = 0;
+
+    [[nodiscard]] std::string_view getKey() const {
+        return key(kind);
+    }
+
+    [[nodiscard]] std::string_view getType() const {
+        return to_string(kind);
+    }
 };
 
 class Dungeon;
@@ -338,11 +423,7 @@ struct Sill {
 struct TunnelOffsets {
     std::span<const Offset> walled;
     std::span<const Offset> corridor;
-    std::span<const Offset> stair;
     std::span<const Offset> next;
-    std::span<const Offset> close;
-    std::span<const Offset> open;
-    std::span<const Offset> recurse;
 };
 
 inline constexpr std::array<Direction, 4> DIRECTIONS = {
@@ -407,66 +488,31 @@ inline constexpr std::array<Offset, 7> STAIR_N_WALLED = {
         Offset{1, -1}, Offset{0, -1}, Offset{-1, -1}, Offset{-1, 0}, Offset{-1, 1}, Offset{0, 1}, Offset{1, 1}
 };
 inline constexpr std::array<Offset, 3> STAIR_N_CORRIDOR = {Offset{0, 0}, Offset{1, 0}, Offset{2, 0}};
-inline constexpr std::array<Offset, 1> STAIR_N_STAIR = {Offset{0, 0}};
 inline constexpr std::array<Offset, 1> STAIR_N_NEXT = {Offset{1, 0}};
 
 inline constexpr std::array<Offset, 7> STAIR_S_WALLED = {
         Offset{-1, -1}, Offset{0, -1}, Offset{1, -1}, Offset{1, 0}, Offset{1, 1}, Offset{0, 1}, Offset{-1, 1}
 };
 inline constexpr std::array<Offset, 3> STAIR_S_CORRIDOR = {Offset{0, 0}, Offset{-1, 0}, Offset{-2, 0}};
-inline constexpr std::array<Offset, 1> STAIR_S_STAIR = {Offset{0, 0}};
 inline constexpr std::array<Offset, 1> STAIR_S_NEXT = {Offset{-1, 0}};
 
 inline constexpr std::array<Offset, 7> STAIR_E_WALLED = {
         Offset{-1, -1}, Offset{-1, 0}, Offset{-1, 1}, Offset{0, 1}, Offset{1, 1}, Offset{1, 0}, Offset{1, -1}
 };
 inline constexpr std::array<Offset, 3> STAIR_E_CORRIDOR = {Offset{0, 0}, Offset{0, -1}, Offset{0, -2}};
-inline constexpr std::array<Offset, 1> STAIR_E_STAIR = {Offset{0, 0}};
 inline constexpr std::array<Offset, 1> STAIR_E_NEXT = {Offset{0, -1}};
 
 inline constexpr std::array<Offset, 7> STAIR_W_WALLED = {
         Offset{-1, 1}, Offset{-1, 0}, Offset{-1, -1}, Offset{0, -1}, Offset{1, -1}, Offset{1, 0}, Offset{1, 1}
 };
 inline constexpr std::array<Offset, 3> STAIR_W_CORRIDOR = {Offset{0, 0}, Offset{0, 1}, Offset{0, 2}};
-inline constexpr std::array<Offset, 1> STAIR_W_STAIR = {Offset{0, 0}};
 inline constexpr std::array<Offset, 1> STAIR_W_NEXT = {Offset{0, 1}};
 
 inline constexpr std::array<TunnelOffsets, 4> STAIR_END = {{
-        {STAIR_N_WALLED, STAIR_N_CORRIDOR, STAIR_N_STAIR, STAIR_N_NEXT, {}, {}, {}},
-        {STAIR_S_WALLED, STAIR_S_CORRIDOR, STAIR_S_STAIR, STAIR_S_NEXT, {}, {}, {}},
-        {STAIR_E_WALLED, STAIR_E_CORRIDOR, STAIR_E_STAIR, STAIR_E_NEXT, {}, {}, {}},
-        {STAIR_W_WALLED, STAIR_W_CORRIDOR, STAIR_W_STAIR, STAIR_W_NEXT, {}, {}, {}}
-}};
-
-inline constexpr std::array<Offset, 5> CLOSE_N_WALLED = {
-        Offset{0, -1}, Offset{1, -1}, Offset{1, 0}, Offset{1, 1}, Offset{0, 1}
-};
-inline constexpr std::array<Offset, 1> CLOSE_N_CLOSE = {Offset{0, 0}};
-inline constexpr std::array<Offset, 1> CLOSE_N_RECURSE = {Offset{-1, 0}};
-
-inline constexpr std::array<Offset, 5> CLOSE_S_WALLED = {
-        Offset{0, -1}, Offset{-1, -1}, Offset{-1, 0}, Offset{-1, 1}, Offset{0, 1}
-};
-inline constexpr std::array<Offset, 1> CLOSE_S_CLOSE = {Offset{0, 0}};
-inline constexpr std::array<Offset, 1> CLOSE_S_RECURSE = {Offset{1, 0}};
-
-inline constexpr std::array<Offset, 5> CLOSE_E_WALLED = {
-        Offset{-1, 0}, Offset{-1, -1}, Offset{0, -1}, Offset{1, -1}, Offset{1, 0}
-};
-inline constexpr std::array<Offset, 1> CLOSE_E_CLOSE = {Offset{0, 0}};
-inline constexpr std::array<Offset, 1> CLOSE_E_RECURSE = {Offset{0, 1}};
-
-inline constexpr std::array<Offset, 5> CLOSE_W_WALLED = {
-        Offset{-1, 0}, Offset{-1, 1}, Offset{0, 1}, Offset{1, 1}, Offset{1, 0}
-};
-inline constexpr std::array<Offset, 1> CLOSE_W_CLOSE = {Offset{0, 0}};
-inline constexpr std::array<Offset, 1> CLOSE_W_RECURSE = {Offset{0, -1}};
-
-inline constexpr std::array<TunnelOffsets, 4> CLOSE_END = {{
-        {CLOSE_N_WALLED, {}, {}, {}, CLOSE_N_CLOSE, {}, CLOSE_N_RECURSE},
-        {CLOSE_S_WALLED, {}, {}, {}, CLOSE_S_CLOSE, {}, CLOSE_S_RECURSE},
-        {CLOSE_E_WALLED, {}, {}, {}, CLOSE_E_CLOSE, {}, CLOSE_E_RECURSE},
-        {CLOSE_W_WALLED, {}, {}, {}, CLOSE_W_CLOSE, {}, CLOSE_W_RECURSE}
+        {STAIR_N_WALLED, STAIR_N_CORRIDOR, STAIR_N_NEXT},
+        {STAIR_S_WALLED, STAIR_S_CORRIDOR, STAIR_S_NEXT},
+        {STAIR_E_WALLED, STAIR_E_CORRIDOR, STAIR_E_NEXT},
+        {STAIR_W_WALLED, STAIR_W_CORRIDOR, STAIR_W_NEXT}
 }};
 
 } // namespace detail
@@ -505,12 +551,20 @@ public:
     }
 
 private:
+    struct CorridorNode {
+        int i = 0;
+        int j = 0;
+    };
+
     Options options;
     std::mt19937 &rng;
     std::vector<Cell> cells;
     std::vector<Room> rooms;
     std::vector<Stairs> stairs;
     std::vector<std::vector<Door>> doors;
+    std::vector<std::uint8_t> corridor_degrees;
+    std::vector<std::uint8_t> corridor_node_seen;
+    std::vector<CorridorNode> corridor_nodes;
 
     const int n_i;
     const int n_j;
@@ -539,6 +593,14 @@ private:
         return static_cast<std::size_t>(row * colCount() + col);
     }
 
+    [[nodiscard]] std::size_t node_index(int i, int j) const {
+        return static_cast<std::size_t>(i * n_j + j);
+    }
+
+    [[nodiscard]] bool is_node(int i, int j) const {
+        return i >= 0 && i < n_i && j >= 0 && j < n_j;
+    }
+
     [[nodiscard]] Cell &cell(int row, int col) {
         return cells[index(row, col)];
     }
@@ -547,12 +609,66 @@ private:
         return cells[index(row, col)];
     }
 
+    [[nodiscard]] int node_row(int i) const {
+        return (i * 2) + 1;
+    }
+
+    [[nodiscard]] int node_col(int j) const {
+        return (j * 2) + 1;
+    }
+
+    [[nodiscard]] Cell &node_cell(CorridorNode node) {
+        return cell(node_row(node.i), node_col(node.j));
+    }
+
+    [[nodiscard]] const Cell &node_cell(CorridorNode node) const {
+        return cell(node_row(node.i), node_col(node.j));
+    }
+
     [[nodiscard]] Room &room_by_id(int id) {
         return rooms[static_cast<std::size_t>(id - 1)];
     }
 
     [[nodiscard]] const Room &room_by_id(int id) const {
         return rooms[static_cast<std::size_t>(id - 1)];
+    }
+
+    void reset_corridor_graph() {
+        corridor_degrees.assign(static_cast<std::size_t>(n_i * n_j), 0);
+        corridor_node_seen.assign(static_cast<std::size_t>(n_i * n_j), 0);
+        corridor_nodes.clear();
+        corridor_nodes.reserve(static_cast<std::size_t>(n_i * n_j));
+    }
+
+    void track_corridor_node(CorridorNode node) {
+        const auto index = node_index(node.i, node.j);
+        if (!corridor_node_seen[index]) {
+            corridor_node_seen[index] = 1;
+            corridor_nodes.push_back(node);
+        }
+    }
+
+    void add_corridor_edge(CorridorNode from, CorridorNode to) {
+        if (!is_node(from.i, from.j) || !is_node(to.i, to.j)) {
+            return;
+        }
+        track_corridor_node(from);
+        track_corridor_node(to);
+        auto &from_degree = corridor_degrees[node_index(from.i, from.j)];
+        auto &to_degree = corridor_degrees[node_index(to.i, to.j)];
+        if (from_degree < 255) {
+            from_degree++;
+        }
+        if (to_degree < 255) {
+            to_degree++;
+        }
+    }
+
+    [[nodiscard]] int corridor_degree(CorridorNode node) const {
+        if (!is_node(node.i, node.j)) {
+            return 0;
+        }
+        return corridor_degrees[node_index(node.i, node.j)];
     }
 
     [[nodiscard]] int random_int(int max_exclusive) {
@@ -818,7 +934,7 @@ private:
             Door door;
             door.row = door_r;
             door.col = door_c;
-            apply_door_type(generate_door_type(), door);
+            apply_door_type(generate_door_kind(), door);
 
             door.out_id = out_id;
             if (out_id) {
@@ -827,63 +943,57 @@ private:
         }
     }
 
-    void apply_door_type(CellType door_type, Door &door) {
-        cell(door.row, door.col).addType(door_type);
-        switch (door_type) {
-            case CellType::ARCH:
-                cell(door.row, door.col).setLabel("a");
-                door.key = "arch";
-                door.type = "Archway";
+    void apply_door_type(DoorKind door_kind, Door &door) {
+        door.kind = door_kind;
+        switch (door_kind) {
+            case DoorKind::Arch:
+                cell(door.row, door.col).addType(CellType::ARCH);
+                cell(door.row, door.col).setLabel('a');
                 break;
-            case CellType::DOOR:
-                cell(door.row, door.col).setLabel("o");
-                door.key = "open";
-                door.type = "Unlocked Door";
+            case DoorKind::Open:
+                cell(door.row, door.col).addType(CellType::DOOR);
+                cell(door.row, door.col).setLabel('o');
                 break;
-            case CellType::LOCKED:
-                cell(door.row, door.col).setLabel("x");
-                door.key = "lock";
-                door.type = "Locked Door";
+            case DoorKind::Locked:
+                cell(door.row, door.col).addType(CellType::LOCKED);
+                cell(door.row, door.col).setLabel('x');
                 break;
-            case CellType::TRAPPED:
-                cell(door.row, door.col).setLabel("t");
-                door.key = "trap";
-                door.type = "Trapped Door";
+            case DoorKind::Trapped:
+                cell(door.row, door.col).addType(CellType::TRAPPED);
+                cell(door.row, door.col).setLabel('t');
                 break;
-            case CellType::SECRET:
-                cell(door.row, door.col).setLabel("s");
-                door.key = "secret";
-                door.type = "Secret Door";
+            case DoorKind::Secret:
+                cell(door.row, door.col).addType(CellType::SECRET);
+                cell(door.row, door.col).setLabel('s');
                 break;
-            case CellType::PORTC:
-                cell(door.row, door.col).setLabel("p");
-                door.key = "portc";
-                door.type = "Portcullis";
+            case DoorKind::Portcullis:
+                cell(door.row, door.col).addType(CellType::PORTC);
+                cell(door.row, door.col).setLabel('p');
                 break;
-            default:
+            case DoorKind::None:
                 break;
         }
     }
 
-    [[nodiscard]] CellType generate_door_type() {
+    [[nodiscard]] DoorKind generate_door_kind() {
         const auto i = random_int(110);
 
         if (i < 15) {
-            return CellType::ARCH;
+            return DoorKind::Arch;
         }
         if (i < 60) {
-            return CellType::DOOR;
+            return DoorKind::Open;
         }
         if (i < 75) {
-            return CellType::LOCKED;
+            return DoorKind::Locked;
         }
         if (i < 90) {
-            return CellType::TRAPPED;
+            return DoorKind::Trapped;
         }
         if (i < 100) {
-            return CellType::SECRET;
+            return DoorKind::Secret;
         }
-        return CellType::PORTC;
+        return DoorKind::Portcullis;
     }
 
     [[nodiscard]] int alloc_opens(const Room &room) {
@@ -967,16 +1077,17 @@ private:
             const auto label_c = int((room.west + room.east - static_cast<int>(len)) / 2) + 1;
 
             for (decltype(len) c = 0; c < len; c++) {
-                cell(label_r, label_c + static_cast<int>(c)).setLabel(label.substr(c, 1));
+                cell(label_r, label_c + static_cast<int>(c)).setLabel(label[c]);
             }
         }
     }
 
     void corridors() {
+        reset_corridor_graph();
         for (auto i = 1; i < n_i; i++) {
-            const auto r = (i * 2) + 1;
+            const auto r = node_row(i);
             for (auto j = 1; j < n_j; j++) {
-                const auto c = (j * 2) + 1;
+                const auto c = node_col(j);
 
                 if (cell(r, c).hasType(CellType::CORRIDOR)) {
                     continue;
@@ -989,51 +1100,65 @@ private:
     struct TunnelStep {
         int i = 0;
         int j = 0;
-        std::optional<Direction> last_dir;
+        Direction last_dir = Direction::NORTH;
+        bool has_last_dir = false;
     };
 
     void tunnel(int start_i, int start_j, std::optional<Direction> last_dir = std::nullopt) {
-        std::queue<TunnelStep> args;
-        args.push({start_i, start_j, last_dir});
+        std::vector<TunnelStep> args;
+        args.reserve(static_cast<std::size_t>(n_i * n_j));
+        args.push_back({start_i, start_j, last_dir.value_or(Direction::NORTH), last_dir.has_value()});
         while (!args.empty()) {
-            auto arg = args.front();
-            args.pop();
-            auto dirs = tunnel_dirs(arg.last_dir);
+            const auto arg = args.back();
+            args.pop_back();
+            auto dirs = tunnel_dirs(arg.last_dir, arg.has_last_dir);
             for (const auto &dir: dirs) {
                 if (open_tunnel(arg.i, arg.j, dir)) {
                     const auto next_i = arg.i + detail::dir_i(dir);
                     const auto next_j = arg.j + detail::dir_j(dir);
 
-                    args.push({next_i, next_j, dir});
+                    args.push_back({next_i, next_j, dir, true});
                 }
             }
         }
     }
 
-    [[nodiscard]] std::array<Direction, 4> tunnel_dirs(const std::optional<Direction> &last_dir) {
-        auto p = static_cast<int>(options.corridor_layout);
+    [[nodiscard]] std::array<Direction, 4> tunnel_dirs(Direction last_dir, bool has_last_dir) {
+        const auto p = static_cast<int>(options.corridor_layout);
         auto dirs = detail::DIRECTIONS;
-        std::shuffle(dirs.begin(), dirs.end(), rng);
+        for (std::size_t i = dirs.size() - 1; i > 0; --i) {
+            const auto j = static_cast<std::size_t>(random_int(static_cast<int>(i + 1)));
+            std::swap(dirs[i], dirs[j]);
+        }
 
-        if (last_dir.has_value() && p > 0 && random_int(100) < p) {
-            std::stable_partition(dirs.begin(), dirs.end(), [&](Direction dir) {
-                return dir == last_dir.value();
-            });
+        if (has_last_dir && p > 0 && random_int(100) < p) {
+            for (std::size_t i = 0; i < dirs.size(); ++i) {
+                if (dirs[i] == last_dir) {
+                    std::swap(dirs[0], dirs[i]);
+                    break;
+                }
+            }
         }
 
         return dirs;
     }
 
     [[nodiscard]] bool open_tunnel(int i, int j, Direction dir) {
-        const auto this_r = (i * 2) + 1;
-        const auto this_c = (j * 2) + 1;
-        const auto next_r = ((i + detail::dir_i(dir)) * 2) + 1;
-        const auto next_c = ((j + detail::dir_j(dir)) * 2) + 1;
-        const auto mid_r = (this_r + next_r) / 2;
-        const auto mid_c = (this_c + next_c) / 2;
+        const auto next_i = i + detail::dir_i(dir);
+        const auto next_j = j + detail::dir_j(dir);
+        const auto this_r = node_row(i);
+        const auto this_c = node_col(j);
+        const auto mid_r = this_r + detail::dir_i(dir);
+        const auto mid_c = this_c + detail::dir_j(dir);
+        const auto next_r = this_r + (detail::dir_i(dir) * 2);
+        const auto next_c = this_c + (detail::dir_j(dir) * 2);
 
         if (sound_tunnel(mid_r, mid_c, next_r, next_c)) {
-            return delve_tunnel(this_r, this_c, next_r, next_c);
+            carve_corridor_cell(this_r, this_c);
+            carve_corridor_cell(mid_r, mid_c);
+            carve_corridor_cell(next_r, next_c);
+            add_corridor_edge({i, j}, {next_i, next_j});
+            return true;
         }
         return false;
     }
@@ -1045,35 +1170,13 @@ private:
         if (next_c < 0 || next_c > n_cols) {
             return false;
         }
-        const auto r1 = std::min(mid_r, next_r);
-        const auto r2 = std::max(mid_r, next_r);
-        const auto c1 = std::min(mid_c, next_c);
-        const auto c2 = std::max(mid_c, next_c);
-
-        for (auto r = r1; r <= r2; r++) {
-            for (auto c = c1; c <= c2; c++) {
-                if (cell(r, c).isBlockedCorridor()) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        return !cell(mid_r, mid_c).isBlockedCorridor()
+               && !cell(next_r, next_c).isBlockedCorridor();
     }
 
-    bool delve_tunnel(int this_r, int this_c, int next_r, int next_c) {
-        const auto r1 = std::min(this_r, next_r);
-        const auto r2 = std::max(this_r, next_r);
-        const auto c1 = std::min(this_c, next_c);
-        const auto c2 = std::max(this_c, next_c);
-
-        for (auto r = r1; r <= r2; r++) {
-            for (auto c = c1; c <= c2; c++) {
-                cell(r, c).removeType(CellType::ENTRANCE);
-                cell(r, c).addType(CellType::CORRIDOR);
-            }
-        }
-        return true;
+    void carve_corridor_cell(int row, int col) {
+        cell(row, col).removeType(CellType::ENTRANCE);
+        cell(row, col).addType(CellType::CORRIDOR);
     }
 
     void emplace_stairs() {
@@ -1096,12 +1199,12 @@ private:
 
             if (type == 0) {
                 cell(r, c).addType(CellType::STAIR_DN);
-                cell(r, c).setLabel("d");
-                stair.key = "down";
+                cell(r, c).setLabel('d');
+                stair.kind = StairKind::Down;
             } else {
                 cell(r, c).addType(CellType::STAIR_UP);
-                cell(r, c).setLabel("u");
-                stair.key = "up";
+                cell(r, c).setLabel('u');
+                stair.kind = StairKind::Up;
             }
             stairs.push_back(stair);
         }
@@ -1123,75 +1226,116 @@ private:
 
     [[nodiscard]] std::vector<Stairs> stair_ends() const {
         std::vector<Stairs> candidates;
+        candidates.reserve(corridor_nodes.size() / 4);
 
-        for (auto i = 0; i < n_i; i++) {
-            const auto r = (i * 2) + 1;
-            for (auto j = 0; j < n_j; j++) {
-                const auto c = (j * 2) + 1;
+        for (const auto node: corridor_nodes) {
+            if (corridor_degree(node) != 1) {
+                continue;
+            }
+            const auto r = node_row(node.i);
+            const auto c = node_col(node.j);
 
-                if (!cell(r, c).hasType(CellType::CORRIDOR) || cell(r, c).isStairs()) {
-                    continue;
-                }
-                for (auto dir: detail::DIRECTIONS) {
-                    const auto &dir_value = detail::STAIR_END[detail::direction_index(dir)];
-                    if (check_tunnel(r, c, dir_value)) {
-                        Stairs end;
-                        end.row = r;
-                        end.col = c;
+            if (!cell(r, c).hasType(CellType::CORRIDOR) || cell(r, c).isStairs()) {
+                continue;
+            }
+            for (auto dir: detail::DIRECTIONS) {
+                const auto &dir_value = detail::STAIR_END[detail::direction_index(dir)];
+                if (check_tunnel(r, c, dir_value)) {
+                    Stairs end;
+                    end.row = r;
+                    end.col = c;
 
-                        end.next_row = end.row + dir_value.next[0][0];
-                        end.next_col = end.col + dir_value.next[0][1];
+                    end.next_row = end.row + dir_value.next[0][0];
+                    end.next_col = end.col + dir_value.next[0][1];
 
-                        candidates.push_back(end);
-                        break;
-                    }
+                    candidates.push_back(end);
+                    break;
                 }
             }
         }
         return candidates;
     }
 
-    void collapse(int r, int c) {
-        if (!(cell(r, c).isOpenspace())) {
-            return;
-        }
+    [[nodiscard]] std::optional<CorridorNode> sole_corridor_neighbor(CorridorNode node) const {
         for (auto dir: detail::DIRECTIONS) {
-            const auto &value = detail::CLOSE_END[detail::direction_index(dir)];
-            if (check_tunnel(r, c, value)) {
-                for (const auto &p: value.close) {
-                    cell(r + p[0], c + p[1]).clearTypes();
-                }
-                for (const auto &p: value.open) {
-                    cell(r + p[0], c + p[1]).addType(CellType::CORRIDOR);
-                }
-                for (const auto &p: value.recurse) {
-                    collapse(r + p[0], c + p[1]);
-                }
+            CorridorNode neighbor{node.i + detail::dir_i(dir), node.j + detail::dir_j(dir)};
+            if (!is_node(neighbor.i, neighbor.j)) {
+                continue;
+            }
+            if (node_cell(neighbor).hasType(CellType::CORRIDOR)) {
+                return neighbor;
             }
         }
+        return {};
     }
 
-    void collapse_tunnels(int p) {
-        if (!p) {
+    [[nodiscard]] bool is_dead_end_node(CorridorNode node) const {
+        const auto &target = node_cell(node);
+        if (!target.hasType(CellType::CORRIDOR) || target.hasType(CellType::ROOM) || target.isStairs()) {
+            return false;
+        }
+        const auto degree = corridor_degree(node);
+        if (degree > 1) {
+            return false;
+        }
+        if (degree == 1) {
+            const auto neighbor = sole_corridor_neighbor(node);
+            if (neighbor && node_cell(neighbor.value()).isStairs()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    [[nodiscard]] std::optional<CorridorNode> collapse_dead_end_node(CorridorNode node) {
+        auto neighbor = sole_corridor_neighbor(node);
+
+        cell(node_row(node.i), node_col(node.j)).clearTypes();
+        corridor_degrees[node_index(node.i, node.j)] = 0;
+
+        if (!neighbor) {
+            return {};
+        }
+
+        const auto neighbor_row = node_row(neighbor->i);
+        const auto neighbor_col = node_col(neighbor->j);
+        const auto mid_r = (node_row(node.i) + neighbor_row) / 2;
+        const auto mid_c = (node_col(node.j) + neighbor_col) / 2;
+        cell(mid_r, mid_c).clearTypes();
+
+        auto &neighbor_degree = corridor_degrees[node_index(neighbor->i, neighbor->j)];
+        if (neighbor_degree > 0) {
+            neighbor_degree--;
+        }
+        return neighbor;
+    }
+
+    void collapse_tunnels(int percent) {
+        if (!percent) {
             return;
         }
-        const auto all = p == 100;
+        const auto all = percent == 100;
+        std::vector<CorridorNode> pending;
+        pending.reserve(corridor_nodes.size());
 
-        for (int i = 0; i < n_i; i++) {
-            const auto r = (i * 2) + 1;
-            for (int j = 0; j < n_j; j++) {
-                const auto c = (j * 2) + 1;
+        for (const auto node: corridor_nodes) {
+            if (!is_dead_end_node(node)) {
+                continue;
+            }
+            if (!all && random_int(100) >= percent) {
+                continue;
+            }
+            pending.push_back(node);
+        }
 
-                if (!(cell(r, c).isOpenspace())) {
-                    continue;
-                }
-                if (cell(r, c).isStairs()) {
-                    continue;
-                }
-                if (!(all || random_int(100) < p)) {
-                    continue;
-                }
-                collapse(r, c);
+        for (std::size_t index = 0; index < pending.size(); ++index) {
+            const auto node = pending[index];
+            if (!is_dead_end_node(node)) {
+                continue;
+            }
+            const auto neighbor = collapse_dead_end_node(node);
+            if (neighbor && is_dead_end_node(neighbor.value())) {
+                pending.push_back(neighbor.value());
             }
         }
     }
