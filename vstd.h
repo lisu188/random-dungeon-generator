@@ -1,14 +1,29 @@
 #pragma once
 
+#include <concepts>
 #include <queue>
 #include <random>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace vstd {
 
 template <typename Container, typename Value>
-bool ctn(const Container &container, const Value &value) {
+concept ContainsComparable = requires(const Container &container, const Value &value) {
+    { container.find(value) };
+    { container.end() };
+};
+
+template <typename Queue>
+concept QueueLike = requires(Queue &queue) {
+    { queue.front() };
+    { queue.pop() } -> std::same_as<void>;
+};
+
+template <typename Container, typename Value>
+requires ContainsComparable<Container, Value>
+[[nodiscard]] bool ctn(const Container &container, const Value &value) {
     return container.find(value) != container.end();
 }
 
@@ -40,7 +55,7 @@ std::string str(const T &value) {
     return out.str();
 }
 
-template <typename Queue>
+template <QueueLike Queue>
 auto pop(Queue &queue) {
     auto front = queue.front();
     queue.pop();
