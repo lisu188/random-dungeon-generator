@@ -8,6 +8,29 @@
 #include <string>
 #include <string_view>
 
+static_assert(std::to_underlying(rdg::CellType::BLOCKED) == 0);
+static_assert(std::to_underlying(rdg::CellType::STAIR_UP) == 12);
+static_assert(std::to_underlying(rdg::Direction::NORTH) == 0);
+static_assert(std::to_underlying(rdg::Direction::SOUTH) == 1);
+static_assert(std::to_underlying(rdg::Direction::EAST) == 2);
+static_assert(std::to_underlying(rdg::Direction::WEST) == 3);
+static_assert(std::to_underlying(rdg::CorridorLayout::LABYRINTH) == 0);
+static_assert(std::to_underlying(rdg::CorridorLayout::BENT) == 50);
+static_assert(std::to_underlying(rdg::CorridorLayout::STRAIGHT) == 100);
+static_assert(rdg::dungeon_layout_from_string("Cross") == rdg::DungeonLayout::Cross);
+static_assert(rdg::room_layout_from_string("Packed") == rdg::RoomLayout::Packed);
+static_assert(rdg::map_style_from_string("Standard") == rdg::MapStyle::Standard);
+static_assert(!rdg::dungeon_layout_from_string("invalid"));
+static_assert(!rdg::room_layout_from_string("invalid"));
+static_assert(!rdg::map_style_from_string("invalid"));
+static_assert(rdg::to_string(rdg::DungeonLayout::Round) == "Round");
+static_assert(rdg::to_string(rdg::RoomLayout::Scattered) == "Scattered");
+static_assert(rdg::to_string(rdg::MapStyle::Standard) == "Standard");
+static_assert(rdg::to_string(rdg::DoorKind::Locked) == "Locked Door");
+static_assert(rdg::key(rdg::DoorKind::Secret) == "secret");
+static_assert(rdg::key(rdg::StairKind::Down) == "down");
+static_assert(rdg::detail::direction_index(rdg::Direction::WEST) == 3);
+
 static void require(bool condition) {
     if (!condition) {
         std::abort();
@@ -379,6 +402,10 @@ static void test_seeded_rng_is_deterministic() {
     auto second = rdg::create_dungeon(options, second_rng);
 
     require(dungeon_checksum(first) == dungeon_checksum(second));
+    require(first_rng == second_rng);
+    std::mt19937 expected_rng{123};
+    expected_rng.discard(2);
+    require(first_rng == expected_rng);
     require(first.getStairs().size() == 2);
     require(!first.getStairs().front().getKey().empty());
 }

@@ -80,7 +80,7 @@ enum class StairKind : std::uint8_t {
     Up
 };
 
-[[nodiscard]] inline std::optional<DungeonLayout> dungeon_layout_from_string(std::string_view value) {
+[[nodiscard]] constexpr std::optional<DungeonLayout> dungeon_layout_from_string(std::string_view value) {
     if (value == "None") {
         return DungeonLayout::None;
     }
@@ -96,7 +96,7 @@ enum class StairKind : std::uint8_t {
     return std::nullopt;
 }
 
-[[nodiscard]] inline std::optional<RoomLayout> room_layout_from_string(std::string_view value) {
+[[nodiscard]] constexpr std::optional<RoomLayout> room_layout_from_string(std::string_view value) {
     if (value == "Scattered") {
         return RoomLayout::Scattered;
     }
@@ -106,93 +106,93 @@ enum class StairKind : std::uint8_t {
     return std::nullopt;
 }
 
-[[nodiscard]] inline std::optional<MapStyle> map_style_from_string(std::string_view value) {
+[[nodiscard]] constexpr std::optional<MapStyle> map_style_from_string(std::string_view value) {
     if (value == "Standard") {
         return MapStyle::Standard;
     }
     return std::nullopt;
 }
 
-[[nodiscard]] inline std::string_view to_string(DungeonLayout layout) {
+[[nodiscard]] constexpr std::string_view to_string(DungeonLayout layout) {
     switch (layout) {
-        case DungeonLayout::None:
-            return "None";
-        case DungeonLayout::Box:
-            return "Box";
-        case DungeonLayout::Cross:
-            return "Cross";
-        case DungeonLayout::Round:
-            return "Round";
+    case DungeonLayout::None:
+        return "None";
+    case DungeonLayout::Box:
+        return "Box";
+    case DungeonLayout::Cross:
+        return "Cross";
+    case DungeonLayout::Round:
+        return "Round";
     }
     return "None";
 }
 
-[[nodiscard]] inline std::string_view to_string(RoomLayout layout) {
+[[nodiscard]] constexpr std::string_view to_string(RoomLayout layout) {
     switch (layout) {
-        case RoomLayout::Scattered:
-            return "Scattered";
-        case RoomLayout::Packed:
-            return "Packed";
+    case RoomLayout::Scattered:
+        return "Scattered";
+    case RoomLayout::Packed:
+        return "Packed";
     }
     return "Scattered";
 }
 
-[[nodiscard]] inline std::string_view to_string(MapStyle style) {
+[[nodiscard]] constexpr std::string_view to_string(MapStyle style) {
     switch (style) {
-        case MapStyle::Standard:
-            return "Standard";
+    case MapStyle::Standard:
+        return "Standard";
     }
     return "Standard";
 }
 
-[[nodiscard]] inline std::string_view key(DoorKind kind) {
+[[nodiscard]] constexpr std::string_view key(DoorKind kind) {
     switch (kind) {
-        case DoorKind::Arch:
-            return "arch";
-        case DoorKind::Open:
-            return "open";
-        case DoorKind::Locked:
-            return "lock";
-        case DoorKind::Trapped:
-            return "trap";
-        case DoorKind::Secret:
-            return "secret";
-        case DoorKind::Portcullis:
-            return "portc";
-        case DoorKind::None:
-            return "";
+    case DoorKind::Arch:
+        return "arch";
+    case DoorKind::Open:
+        return "open";
+    case DoorKind::Locked:
+        return "lock";
+    case DoorKind::Trapped:
+        return "trap";
+    case DoorKind::Secret:
+        return "secret";
+    case DoorKind::Portcullis:
+        return "portc";
+    case DoorKind::None:
+        return "";
     }
     return "";
 }
 
-[[nodiscard]] inline std::string_view to_string(DoorKind kind) {
+[[nodiscard]] constexpr std::string_view to_string(DoorKind kind) {
     switch (kind) {
-        case DoorKind::Arch:
-            return "Archway";
-        case DoorKind::Open:
-            return "Unlocked Door";
-        case DoorKind::Locked:
-            return "Locked Door";
-        case DoorKind::Trapped:
-            return "Trapped Door";
-        case DoorKind::Secret:
-            return "Secret Door";
-        case DoorKind::Portcullis:
-            return "Portcullis";
-        case DoorKind::None:
-            return "";
+    case DoorKind::Arch:
+        return "Archway";
+    case DoorKind::Open:
+        return "Unlocked Door";
+    case DoorKind::Locked:
+        return "Locked Door";
+    case DoorKind::Trapped:
+        return "Trapped Door";
+    case DoorKind::Secret:
+        return "Secret Door";
+    case DoorKind::Portcullis:
+        return "Portcullis";
+    case DoorKind::None:
+        return "";
     }
     return "";
 }
 
-[[nodiscard]] inline std::string_view key(StairKind kind) {
+[[nodiscard]] constexpr std::string_view key(StairKind kind) {
     switch (kind) {
-        case StairKind::Down:
-            return "down";
-        case StairKind::Up:
-            return "up";
-        case StairKind::None:
-            return "";
+    case StairKind::Down:
+        return "down";
+    case StairKind::Up:
+        return "up";
+    case StairKind::None:
+        return "";
     }
     return "";
 }
@@ -203,34 +203,32 @@ class Cell {
     char label = '\0';
 
     [[nodiscard]] static constexpr std::uint16_t type_bit(CellType type) {
-        return static_cast<std::uint16_t>(1u << static_cast<unsigned>(type));
+        return static_cast<std::uint16_t>(1u << std::to_underlying(type));
     }
 
     static constexpr std::uint16_t BLOCKED_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::BLOCKED));
-    static constexpr std::uint16_t ROOM_BIT = static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::ROOM));
+        static_cast<std::uint16_t>(1u << std::to_underlying(CellType::BLOCKED));
+    static constexpr std::uint16_t ROOM_BIT = static_cast<std::uint16_t>(1u << std::to_underlying(CellType::ROOM));
     static constexpr std::uint16_t CORRIDOR_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::CORRIDOR));
+        static_cast<std::uint16_t>(1u << std::to_underlying(CellType::CORRIDOR));
     static constexpr std::uint16_t PERIMETER_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::PERIMETER));
+        static_cast<std::uint16_t>(1u << std::to_underlying(CellType::PERIMETER));
     static constexpr std::uint16_t ENTRANCE_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::ENTRANCE));
-    static constexpr std::uint16_t ARCH_BIT = static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::ARCH));
-    static constexpr std::uint16_t DOOR_BIT = static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::DOOR));
-    static constexpr std::uint16_t LOCKED_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::LOCKED));
+        static_cast<std::uint16_t>(1u << std::to_underlying(CellType::ENTRANCE));
+    static constexpr std::uint16_t ARCH_BIT = static_cast<std::uint16_t>(1u << std::to_underlying(CellType::ARCH));
+    static constexpr std::uint16_t DOOR_BIT = static_cast<std::uint16_t>(1u << std::to_underlying(CellType::DOOR));
+    static constexpr std::uint16_t LOCKED_BIT = static_cast<std::uint16_t>(1u << std::to_underlying(CellType::LOCKED));
     static constexpr std::uint16_t TRAPPED_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::TRAPPED));
-    static constexpr std::uint16_t SECRET_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::SECRET));
-    static constexpr std::uint16_t PORTC_BIT = static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::PORTC));
+        static_cast<std::uint16_t>(1u << std::to_underlying(CellType::TRAPPED));
+    static constexpr std::uint16_t SECRET_BIT = static_cast<std::uint16_t>(1u << std::to_underlying(CellType::SECRET));
+    static constexpr std::uint16_t PORTC_BIT = static_cast<std::uint16_t>(1u << std::to_underlying(CellType::PORTC));
     static constexpr std::uint16_t STAIR_DN_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::STAIR_DN));
+        static_cast<std::uint16_t>(1u << std::to_underlying(CellType::STAIR_DN));
     static constexpr std::uint16_t STAIR_UP_BIT =
-            static_cast<std::uint16_t>(1u << static_cast<unsigned>(CellType::STAIR_UP));
+        static_cast<std::uint16_t>(1u << std::to_underlying(CellType::STAIR_UP));
 
     static constexpr std::uint16_t DOORSPACE_BITS =
-            ARCH_BIT | DOOR_BIT | LOCKED_BIT | TRAPPED_BIT | SECRET_BIT | PORTC_BIT;
+        ARCH_BIT | DOOR_BIT | LOCKED_BIT | TRAPPED_BIT | SECRET_BIT | PORTC_BIT;
     static constexpr std::uint16_t ESPACE_BITS = ENTRANCE_BIT | DOORSPACE_BITS;
     static constexpr std::uint16_t STAIR_BITS = STAIR_DN_BIT | STAIR_UP_BIT;
 
@@ -443,9 +441,7 @@ inline constexpr std::array<int, 4> DJ = {0, 0, 1, -1};
 inline constexpr std::array<Direction, 4> OPPOSITE = {Direction::SOUTH, Direction::NORTH, Direction::WEST,
                                                       Direction::EAST};
 
-[[nodiscard]] constexpr std::size_t direction_index(Direction dir) {
-    return static_cast<std::size_t>(dir);
-}
+[[nodiscard]] constexpr std::size_t direction_index(Direction dir) { return std::to_underlying(dir); }
 
 [[nodiscard]] constexpr int dir_i(Direction dir) {
     return DI[direction_index(dir)];
@@ -1166,7 +1162,7 @@ private:
     }
 
     [[nodiscard]] std::array<Direction, 4> tunnel_dirs(Direction last_dir, bool has_last_dir) {
-        const auto p = static_cast<int>(options.corridor_layout);
+        const auto p = std::to_underlying(options.corridor_layout);
         auto dirs = detail::DIRECTIONS;
         for (std::size_t i = dirs.size() - 1; i > 0; --i) {
             const auto j = static_cast<std::size_t>(random_int(static_cast<int>(i + 1)));
