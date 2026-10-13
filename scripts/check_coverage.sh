@@ -3,12 +3,14 @@ set -euo pipefail
 
 BUILD_DIR="${1:-build}"
 THRESHOLD="${2:-80}"
+GCOV="${GCOV:-gcov-15}"
 
 pushd "$BUILD_DIR" >/dev/null
 
-gcov CMakeFiles/unit-tests.dir/tests/test_rdg.cpp.o >/tmp/gcov_rdg_report.txt
+REPORT="gcov_rdg_report.txt"
+"$GCOV" CMakeFiles/unit-tests.dir/tests/test_rdg.cpp.o >"$REPORT"
 
-coverage_line=$(awk '/File '\''.*\/rdg.h'\''/{getline; print; exit}' /tmp/gcov_rdg_report.txt)
+coverage_line=$(awk '/File '\''.*\/rdg.h'\''/{getline; print; exit}' "$REPORT")
 coverage_pct=$(echo "$coverage_line" | sed -E 's/Lines executed:([0-9.]+)%.*/\1/')
 
 if [[ -z "$coverage_pct" || "$coverage_pct" == "$coverage_line" ]]; then

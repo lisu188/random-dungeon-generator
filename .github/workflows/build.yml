@@ -1,0 +1,94 @@
+name: build
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++-15, clang++-20]
+        config: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install C++26 toolchains and pinned CMake
+        run: |
+          python -m pip install --disable-pip-version-check cmake==4.3.1
+          sudo apt-get update
+          sudo apt-get install -y g++-15 clang-20 ninja-build
+      - name: Configure
+        run: >-
+          cmake -S . -B build-cxx26-${{ matrix.compiler }}-${{ matrix.config }} -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+      - run: cmake --build build-cxx26-${{ matrix.compiler }}-${{ matrix.config }} --parallel 2
+      - run: ctest --test-dir build-cxx26-${{ matrix.compiler }}-${{ matrix.config }} --output-on-failure
+      - name: Retain eligible-line coverage gate
+        if: matrix.compiler == 'g++-15' && matrix.config == 'Debug'
+        run: GCOV=gcov-15 bash scripts/check_coverage.sh build-cxx26-g++-15-Debug 80
+      - name: Compare complete seeded output and RNG state
+        run: >-
+          python scripts/compare_seeded_output.py --compiler ${{ matrix.compiler }}
+          --baseline-ref '${{ github.event.pull_request.base.sha || github.event.before }}'
+      - name: Upload parity and coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdg-${{ matrix.compiler }}-${{ matrix.config }}-evidence
+          path: |
+            parity-artifacts/
+            build-cxx26-${{ matrix.compiler }}-${{ matrix.config }}/gcov_rdg_report.txt
+          if-no-files-found: ignore
+  windows:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Install pinned CMake and LLVM
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check cmake==4.3.1
+          if ($LASTEXITCODE -ne 0) { throw 'CMake installation failed' }
+          $clangCl = 'C:\Program Files\LLVM\bin\clang-cl.exe'
+          if (-not (Test-Path -LiteralPath $clangCl)) { throw 'Preinstalled LLVM 20.1.8 is missing' }
+          $version = & $clangCl --version
+          if ($LASTEXITCODE -ne 0 -or ($version -join "`n") -notmatch 'clang version 20\.1\.8(?:\s|$)') {
+            throw "Expected LLVM 20.1.8; found $version"
+          }
+          'C:\Program Files\LLVM\bin' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Configure
+        run: >-
+          cmake -S . -B build-cxx26-clang-cl-20.1.8-${{ matrix.config }} -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_CXX_COMPILER=clang-cl
+      - run: cmake --build build-cxx26-clang-cl-20.1.8-${{ matrix.config }} --parallel 2
+      - run: ctest --test-dir build-cxx26-clang-cl-20.1.8-${{ matrix.config }} --output-on-failure
+      - name: Compare complete seeded output and RNG state
+        run: >-
+          python scripts/compare_seeded_output.py --compiler clang-cl --frontend msvc
+          --baseline-ref '${{ github.event.pull_request.base.sha || github.event.before }}'
+      - name: Upload parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdg-clang-cl-20.1.8-${{ matrix.config }}-evidence
+          path: parity-artifacts/
+          if-no-files-found: ignore
