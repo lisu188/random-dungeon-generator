@@ -198,8 +198,8 @@ enum class StairKind : std::uint8_t {
 }
 
 class Cell {
-    std::uint16_t types = 0;
     int room_id = 0;
+    std::uint16_t types = 0;
     char label = '\0';
 
     [[nodiscard]] static constexpr std::uint16_t type_bit(CellType type) {
@@ -414,6 +414,8 @@ class Dungeon;
 
 namespace detail {
 
+struct DungeonStorageInspector;
+
 using Offset = std::array<int, 2>;
 using Mask = std::array<std::array<int, 3>, 3>;
 
@@ -502,6 +504,7 @@ inline constexpr std::array<TunnelOffsets, 4> STAIR_END = {{{STAIR_N_WALLED, STA
 class Dungeon {
     friend Dungeon create_dungeon(Options options);
     friend Dungeon create_dungeon(Options options, std::mt19937 &rng);
+    friend struct detail::DungeonStorageInspector;
 
 public:
     [[nodiscard]] const auto &getCells() const {
@@ -779,7 +782,10 @@ private:
     }
 
     void emplace_rooms() {
-        rooms.reserve(static_cast<std::size_t>(n_i * n_j));
+        const int room_limit = std::min(999, n_i * n_j);
+        const int room_capacity =
+            options.room_layout == RoomLayout::Packed ? room_limit : std::min(room_limit, alloc_rooms());
+        rooms.reserve(static_cast<std::size_t>(room_capacity));
         if (options.room_layout == RoomLayout::Packed) {
             pack_rooms();
         } else {
@@ -1446,6 +1452,16 @@ private:
         fix_doors();
         empty_blocks();
     }
+
+    void releaseConstructionScratch() {
+        std::vector<std::uint8_t>{}.swap(corridor_degrees);
+        std::vector<std::uint8_t>{}.swap(corridor_links);
+        std::vector<std::uint8_t>{}.swap(corridor_node_seen);
+        std::vector<CorridorNode>{}.swap(corridor_nodes);
+        std::vector<TunnelStep>{}.swap(tunnel_stack);
+        std::vector<detail::Sill>{}.swap(door_sill_scratch);
+        std::vector<std::size_t>{}.swap(blocked_cells);
+    }
 };
 
 [[nodiscard]] inline Dungeon create_dungeon(Options options, std::mt19937 &rng) {
@@ -1465,6 +1481,7 @@ private:
         dungeon.emplace_stairs();
     }
     dungeon.clean_dungeon();
+    dungeon.releaseConstructionScratch();
 
     return dungeon;
 }

@@ -51,6 +51,17 @@ void printDungeon(const rdg::Dungeon &dungeon) {
                   << static_cast<unsigned>(stairs.kind) << ' ' << stairs.getKey() << '\n';
     }
 }
+
+void printSeededDungeon(const rdg::Options &options, unsigned seed) {
+    std::mt19937 rng{seed};
+    printDungeon(rdg::create_dungeon(options, rng));
+    std::cout << "rng-state " << rng << '\n';
+    std::cout << "subsequent-rng";
+    for (int draw = 0; draw < 16; ++draw) {
+        std::cout << ' ' << rng();
+    }
+    std::cout << '\n';
+}
 } // namespace
 
 int main() {
@@ -78,17 +89,19 @@ int main() {
             options.corridor_layout = scenario.corridors;
             options.remove_deadends = scenario.deadends;
             options.add_stairs = scenario.stairs;
-            std::mt19937 rng{seed};
             std::cout << "scenario " << static_cast<unsigned>(scenario.layout) << ' '
                       << static_cast<unsigned>(scenario.rooms) << ' ' << static_cast<int>(scenario.corridors) << ' '
                       << scenario.deadends << ' ' << scenario.stairs << ' ' << seed << '\n';
-            printDungeon(rdg::create_dungeon(options, rng));
-            std::cout << "rng-state " << rng << '\n';
-            std::cout << "subsequent-rng";
-            for (int draw = 0; draw < 16; ++draw) {
-                std::cout << ' ' << rng();
-            }
-            std::cout << '\n';
+            printSeededDungeon(options, seed);
         }
     }
+
+    rdg::Options capped_rooms;
+    capped_rooms.n_rows = 67;
+    capped_rooms.n_cols = 67;
+    capped_rooms.room_layout = rdg::RoomLayout::Packed;
+    capped_rooms.room_min = 1;
+    capped_rooms.room_max = 1;
+    std::cout << "scenario packed-room-cap 123\n";
+    printSeededDungeon(capped_rooms, 123);
 }
