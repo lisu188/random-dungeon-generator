@@ -14,10 +14,10 @@ jobs:
         compiler: [g++-15, clang++-20]
         config: [Debug, Release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install C++26 toolchains and pinned CMake
@@ -40,7 +40,7 @@ jobs:
           --baseline-ref '${{ github.event.pull_request.base.sha || github.event.before }}'
       - name: Upload parity and coverage evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rdg-${{ matrix.compiler }}-${{ matrix.config }}-evidence
           path: |
@@ -54,10 +54,10 @@ jobs:
       matrix:
         config: [Debug, Release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - uses: ilammy/msvc-dev-cmd@v1
@@ -87,7 +87,7 @@ jobs:
           --baseline-ref '${{ github.event.pull_request.base.sha || github.event.before }}'
       - name: Upload parity evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rdg-clang-cl-20.1.8-${{ matrix.config }}-evidence
           path: parity-artifacts/
