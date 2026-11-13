@@ -40,7 +40,7 @@ jobs:
           --baseline-ref '${{ github.event.pull_request.base.sha || github.event.before }}'
       - name: Upload parity and coverage evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rdg-${{ matrix.compiler }}-${{ matrix.config }}-evidence
           path: |
@@ -87,7 +87,7 @@ jobs:
           --baseline-ref '${{ github.event.pull_request.base.sha || github.event.before }}'
       - name: Upload parity evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rdg-clang-cl-20.1.8-${{ matrix.config }}-evidence
           path: parity-artifacts/
