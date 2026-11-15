@@ -3,11 +3,24 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <iostream>
 #include <random>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
+namespace rdg::detail {
+struct DungeonStorageInspector {
+    [[nodiscard]] static std::array<std::size_t, 7> scratchCapacities(const Dungeon &dungeon) {
+        return {dungeon.corridor_degrees.capacity(),   dungeon.corridor_links.capacity(),
+                dungeon.corridor_node_seen.capacity(), dungeon.corridor_nodes.capacity(),
+                dungeon.tunnel_stack.capacity(),       dungeon.door_sill_scratch.capacity(),
+                dungeon.blocked_cells.capacity()};
+    }
+};
+} // namespace rdg::detail
+
+static_assert(sizeof(rdg::Cell) == 8);
 static_assert(std::to_underlying(rdg::CellType::BLOCKED) == 0);
 static_assert(std::to_underlying(rdg::CellType::STAIR_UP) == 12);
 static_assert(std::to_underlying(rdg::Direction::NORTH) == 0);
@@ -410,6 +423,50 @@ static void test_seeded_rng_is_deterministic() {
     require(!first.getStairs().front().getKey().empty());
 }
 
+static void testBoundedReturnedStorage() {
+    for (const auto layout :
+         {rdg::DungeonLayout::None, rdg::DungeonLayout::Box, rdg::DungeonLayout::Cross, rdg::DungeonLayout::Round}) {
+        for (const auto room_layout : {rdg::RoomLayout::Scattered, rdg::RoomLayout::Packed}) {
+            rdg::Options options;
+            options.dungeon_layout = layout;
+            options.room_layout = room_layout;
+            auto dungeon = create_seeded(options, 123);
+            const auto capacities = rdg::detail::DungeonStorageInspector::scratchCapacities(dungeon);
+            require(std::all_of(capacities.begin(), capacities.end(), [](auto capacity) { return capacity == 0; }));
+            const auto node_count = static_cast<std::size_t>((options.n_rows / 2) * (options.n_cols / 2));
+            const auto attempts = static_cast<std::size_t>(((options.n_rows - 1) * (options.n_cols - 1)) /
+                                                           (options.room_max * options.room_max));
+            const auto room_limit = std::min(std::size_t{999}, node_count);
+            const auto expected_capacity =
+                room_layout == rdg::RoomLayout::Packed ? room_limit : std::min(room_limit, attempts);
+            require(dungeon.getRooms().capacity() == expected_capacity);
+        }
+    }
+
+    rdg::Options options;
+    options.n_rows = 67;
+    options.n_cols = 67;
+    options.room_min = 1;
+    options.room_max = 1;
+    options.room_layout = rdg::RoomLayout::Packed;
+    auto dungeon = create_seeded(options, 123);
+    require(dungeon.getRooms().size() == 999);
+    require(dungeon.getRooms().capacity() == 999);
+
+    options.n_rows = 555;
+    options.n_cols = 555;
+    options.room_layout = rdg::RoomLayout::Scattered;
+    options.room_min = 3;
+    options.room_max = 9;
+    auto large_dungeon = create_seeded(options, 123);
+    require(large_dungeon.getRooms().capacity() == 999);
+    const auto capacities = rdg::detail::DungeonStorageInspector::scratchCapacities(large_dungeon);
+    require(std::all_of(capacities.begin(), capacities.end(), [](auto capacity) { return capacity == 0; }));
+    std::cout << "Dungeon storage guard: cell=" << sizeof(rdg::Cell)
+              << " bytes, 555x555 room capacity=" << large_dungeon.getRooms().capacity()
+              << ", retained construction capacities=0\n";
+}
+
 int main() {
     test_cell_type_management();
     test_cell_labels_and_stairs();
@@ -421,5 +478,6 @@ int main() {
     test_option_validation_errors();
     test_compact_metadata_helpers();
     test_seeded_rng_is_deterministic();
+    testBoundedReturnedStorage();
     return 0;
 }
